@@ -1,0 +1,24 @@
+# R13/Fase 0: satu akhir baris untuk semua mesin (dev Windows, server Linux).
+* text=auto eol=lf
+
+# Lockfile wajib ikut ter-commit (R17) tapi tidak perlu ikut di-review.
+package-lock.json linguist-generated=true -diff
+
+# Salinan kontrak dihasilkan npm run sync:contracts, bukan ditulis tangan.
+src/types/contracts/** linguist-generated=true
+
+# Berkas biner: jangan pernah dinormalisasi.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.mp4 binary
+*.webm binary
