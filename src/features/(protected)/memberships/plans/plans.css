@@ -1,0 +1,96 @@
+/* SCOPED ke halaman: setiap selector diawali :where(body:has(.ubsc-page-membership-plans)) dan setiap @keyframes diberi prefix
+   'ubsc-page-membership-plans--'. Alasan: di Next App Router stylesheet halaman yang sudah dimuat TIDAK dibuang saat navigasi,
+   sehingga class bernama sama dengan nilai berbeda antar-halaman (dan aturan global seperti body * / *)
+   saling bocor. Di Laravel tiap halaman menyuntik <style> sendiri yang hilang saat pindah halaman.
+   Penanda .ubsc-page-membership-plans dipasang di elemen root halaman. Jangan tambah selector tanpa prefix ini. */
+@keyframes ubsc-page-membership-plans--planFadeUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes ubsc-page-membership-plans--planShine {
+  0% {
+    background-position: -170% center;
+  }
+  100% {
+    background-position: 220% center;
+  }
+}
+@keyframes ubsc-page-membership-plans--planPulseDot {
+  0%,
+  100% {
+    opacity: 0.78;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.16);
+  }
+}
+@keyframes ubsc-page-membership-plans--planSoftFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translate3d(0, -8px, 0);
+    opacity: 0.95;
+  }
+}
+:where(body:has(.ubsc-page-membership-plans)) .plan-enter {
+  animation: ubsc-page-membership-plans--planFadeUp 0.58s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+:where(body:has(.ubsc-page-membership-plans)) .plan-title-shine {
+  background: linear-gradient(115deg, #0f172a 34%, #cbd5e1 49%, #0f172a 64%);
+  background-size: 220% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: ubsc-page-membership-plans--planShine 4.2s linear infinite;
+}
+:where(body:has(.ubsc-page-membership-plans)) .plan-live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #e35336;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.8),
+    0 0 14px rgba(227, 83, 54, 0.34);
+  animation: ubsc-page-membership-plans--planPulseDot 2.8s ease-in-out infinite;
+}
+:where(body:has(.ubsc-page-membership-plans)) .plan-orbit {
+  animation: ubsc-page-membership-plans--planSoftFloat 6s ease-in-out infinite;
+}
+:where(body:has(.ubsc-page-membership-plans)) .plan-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(227, 83, 54, 0.34) transparent;
+}
+:where(body:has(.ubsc-page-membership-plans)) .plan-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+:where(body:has(.ubsc-page-membership-plans)) .plan-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+:where(body:has(.ubsc-page-membership-plans)) .plan-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(227, 83, 54, 0.34);
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(body:has(.ubsc-page-membership-plans)) .plan-enter,
+  :where(body:has(.ubsc-page-membership-plans)) .plan-title-shine,
+  :where(body:has(.ubsc-page-membership-plans)) .plan-live-dot,
+  :where(body:has(.ubsc-page-membership-plans)) .plan-orbit {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

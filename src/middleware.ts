@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { PERMISSIONS_COOKIE, parsePermissionsCookie, ROLE_COOKIE } from '@/config/auth'
-import { canAccessPathByRole, matchPrefix, PROTECTED_ROUTE_PREFIXES } from '@/config/permissions'
+import { canAccessPathByRole } from '@/config/permissions'
 import { routes } from '@/config/routes'
 
 // Semua peran berbagi satu dashboard; routes.dashboard() menetapkannya di '/'.
@@ -9,6 +9,10 @@ const DEFAULT_HOME = routes.dashboard()
 
 // Route yang hanya boleh diakses saat BELUM login.
 const guestRoutes: string[] = [routes.login()]
+
+// Halaman 403: butuh sesi (kalau tamu -> login), tapi TIDAK butuh permission apa pun —
+// justru ke sinilah pengguna terautentikasi-tapi-tak-berwenang dialihkan.
+const UNAUTHORIZED_PATH = routes.unauthorized()
 
 const buildLoginUrl = (request: NextRequest) => {
   const url = new URL(routes.login(), request.nextUrl)
@@ -25,35 +29,43 @@ export function middleware(request: NextRequest) {
   // setiap pengguna yang sudah login terbaca sebagai tamu dan terlempar ke /login selamanya.
   const userRole = request.cookies.get(ROLE_COOKIE)?.value
   const explicitPermissions = parsePermissionsCookie(request.cookies.get(PERMISSIONS_COOKIE)?.value)
-
-  const isProtectedRoute = PROTECTED_ROUTE_PREFIXES.some((prefix) => matchPrefix(path, prefix))
   const isLoggedIn = Boolean(userRole)
 
-  // Belum login tapi buka route protected → lempar ke halaman login.
-  if (isProtectedRoute && !isLoggedIn) {
+  // ===== Route tamu (/login) =====
+  if (guestRoutes.includes(path)) {
+    // Sudah login tapi buka /login → langsung ke dashboard.
+    if (isLoggedIn) return NextResponse.redirect(new URL(DEFAULT_HOME, request.nextUrl))
+    return NextResponse.next()
+  }
+
+  // ===== Semua route lain butuh sesi =====
+  // Panel ini tidak punya halaman publik selain /login: '/', dashboard, dan seluruh area admin
+  // terlindungi. Beda dengan boilerplate lama yang hanya menjaga ['/dashboard','/settings'] dan
+  // membiarkan '/' (dashboard sebenarnya) lolos.
+  if (!isLoggedIn) {
     return NextResponse.redirect(buildLoginUrl(request))
   }
 
-  if (isLoggedIn) {
-    // Sudah login tapi buka /login → langsung ke dashboard.
-    if (guestRoutes.includes(path)) {
-      return NextResponse.redirect(new URL(DEFAULT_HOME, request.nextUrl))
-    }
+  // Halaman 403 boleh dibuka siapa pun yang sudah login (tanpa cek permission), jika tidak
+  // pengalihan ke sini akan memantul.
+  if (path === UNAUTHORIZED_PATH) {
+    return NextResponse.next()
+  }
 
-    // Route protected tapi permission tidak cukup → /unauthorized, BUKAN DEFAULT_HOME.
-    // DEFAULT_HOME sekarang '/', dan '/' mengarahkan lagi ke dashboard (app/page.tsx), jadi
-    // mengembalikan pengguna ke sana akan memantul bolak-balik tanpa henti saat justru
-    // dashboard-nya yang tidak boleh dia buka. Tujuannya disamakan dengan AuthGuard di
-    // src/app/(protected)/layout.tsx, yang juga mendorong ke /unauthorized.
-    if (isProtectedRoute && !canAccessPathByRole(path, userRole, explicitPermissions)) {
-      return NextResponse.redirect(new URL(routes.unauthorized(), request.nextUrl))
-    }
+  // Route terlindungi tapi permission tidak cukup → /unauthorized, BUKAN DEFAULT_HOME.
+  // DEFAULT_HOME '/' bisa jadi justru halaman yang tidak boleh dia buka; mengembalikannya ke sana
+  // memantul bolak-balik. Disamakan dengan AuthGuard di src/app/(protected)/layout.tsx.
+  if (!canAccessPathByRole(path, userRole, explicitPermissions)) {
+    return NextResponse.redirect(new URL(UNAUTHORIZED_PATH, request.nextUrl))
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  // Matcher agar middleware tidak berjalan di file statis atau API internal
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)']
+  // Matcher agar middleware tidak berjalan di file statis atau API internal. `.*\..*` mengecualikan
+  // semua berkas public/ (logo, /fonts/*, /BES.png, /img/*): tanpa itu tamu di /login dialihkan
+  // saat meminta logo/font, dan staff bisa terlempar ke /unauthorized karena path berkas tak lolos
+  // cek permission. Route halaman panel tidak pernah memakai titik.
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)']
 }

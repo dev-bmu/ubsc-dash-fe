@@ -1,0 +1,73 @@
+/* ═══════════════════════════════════════════════
+   WEEKLY SLOT EDITOR — time field inside the "Tambah jam" pill
+   (port verbatim dari resources/css/app.css Laravel)
+
+   @tailwindcss/forms gives every input a 1px grey border, square
+   corners and 12px padding. On a 28px pill that reads as a stray
+   box, so the field is stripped back to bare text here and only
+   the picker icon is kept.
+   ═══════════════════════════════════════════════ */
+
+.slot-time-input {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  line-height: 1;
+}
+
+.slot-time-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.slot-time-input::-webkit-datetime-edit {
+  padding: 0;
+}
+
+/* Empty reads --:--; grey it so it looks like a placeholder. */
+.slot-time-input:invalid::-webkit-datetime-edit,
+.slot-time-input:not(:valid)::-webkit-datetime-edit {
+  color: #94a3b8;
+}
+
+.slot-time-input::-webkit-calendar-picker-indicator {
+  width: 13px;
+  height: 13px;
+  margin: 0 0 0 4px;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: opacity 0.15s ease;
+}
+
+.slot-time-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Quota field inside a slot chip — same stripping, plus no spinners. */
+.slot-quota-input {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.slot-quota-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.slot-quota-input::-webkit-outer-spin-button,
+.slot-quota-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.slot-quota-input::placeholder {
+  color: #cbd5e1;
+  font-weight: 700;
+}

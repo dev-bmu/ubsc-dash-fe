@@ -47,6 +47,9 @@ export const routes = {
   memberships: () => '/memberships' as const,
   membershipPlans: () => '/memberships/plans' as const,
 
+  gymCheckin: () => '/gym/checkin' as const,
+  gymVisits: () => '/gym/visits' as const,
+
   // ===== CMS =====
   news: () => '/news' as const,
   newsCreate: () => '/news/create' as const,
@@ -62,8 +65,9 @@ export const routes = {
   settingsUsers: () => '/settings/users' as const,
   // Halaman baru: di Laravel gym traffic tidak punya halaman sendiri, hanya endpoint
   // PUT ubsc-staff/settings/gym-traffic yang dipanggil dari kontrol inline di Dashboard.
-  // TODO Fase 8: putuskan tetap inline di Dashboard (lalu hapus entri ini) atau benar-benar
-  // buat halamannya. Jangan dipakai sebagai href sebelum keputusan itu diambil.
+  // Fase 8F: diputuskan TETAP inline di Dashboard (GymTrafficWidget memanggil
+  // PUT /admin/settings/gym-traffic lewat useUpdateGymTraffic). Tidak ada halaman
+  // /settings/gym-traffic dan tidak akan dibuat — entri ini BUKAN href yang sah.
   settingsGymTraffic: () => '/settings/gym-traffic' as const
 } as const
 

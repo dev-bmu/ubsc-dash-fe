@@ -1,6 +1,5 @@
 import './globals.css'
 import type { Metadata } from 'next'
-import { Plus_Jakarta_Sans, Geist_Mono } from 'next/font/google'
 import { Providers } from './providers'
 import { Toaster } from '@/components/ui/sonner'
 import { runContractCheck } from '@/lib/contract-check'
@@ -11,24 +10,10 @@ import { runContractCheck } from '@/lib/contract-check'
 runContractCheck()
 
 // ===== Font =====
-// TODO Fase 2: samakan dengan keputusan font landing. Panel admin memakai .font-clash /
-// .font-bdo sebagai class polos di banyak file, jadi family-nya harus @font-face mentah
-// dengan nama asli — bukan nama ter-obfuscate hasil next/font.
-const jakarta = Plus_Jakarta_Sans({
-  variable: '--font-sans',
-  subsets: ['latin']
-})
-
-const jakartaDisplay = Plus_Jakarta_Sans({
-  variable: '--font-display',
-  weight: ['600', '700', '800'],
-  subsets: ['latin']
-})
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin']
-})
+// Keputusan sama dengan landing: tidak ada next/font. Panel admin memakai .font-clash / .font-bdo
+// sebagai class polos di banyak file, jadi family-nya @font-face mentah dengan nama asli di
+// src/styles/ubsc-base.css (salinan identik landing). Figtree dari app.blade.php tidak di-port —
+// dimuat Laravel tetapi tidak pernah dipakai.
 
 export const metadata: Metadata = {
   title: 'UBSC Admin',
@@ -52,7 +37,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   // yang tidak terpakai. Panel admin UBSC hanya punya satu tema: terang.
   return (
     <html lang="id">
-      <body className={`${jakarta.variable} ${jakartaDisplay.variable} ${geistMono.variable} font-sans antialiased`}>
+      {/* Sama persis dengan <body class="font-sans antialiased"> di app.blade.php Laravel. */}
+      <body className="font-sans antialiased">
         <Providers>{children}</Providers>
         {/* Sonner dipertahankan — hanya di admin. Landing memakai FlashToast bespoke. */}
         <Toaster position="top-right" richColors />

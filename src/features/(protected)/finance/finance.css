@@ -1,0 +1,616 @@
+/* SCOPED ke halaman: setiap selector diawali :where(body:has(.ubsc-page-finance)) dan setiap @keyframes diberi prefix
+   'ubsc-page-finance--'. Prefix dibungkus :where() agar specificity tiap aturan TETAP sama dengan aslinya.
+   Alasan: di Next App Router stylesheet halaman yang sudah dimuat TIDAK dibuang saat navigasi,
+   sehingga class bernama sama dengan nilai berbeda antar-halaman (dan aturan global seperti body * / *)
+   saling bocor. Di Laravel tiap halaman menyuntik \3c style> sendiri yang hilang saat pindah halaman.
+   Penanda .ubsc-page-finance dipasang di elemen root halaman. Jangan tambah selector tanpa prefix ini. */
+:where(body:has(.ubsc-page-finance)) .font-clash {
+  font-family: 'Clash Display', sans-serif;
+}
+:where(body:has(.ubsc-page-finance)) .font-bdo {
+  font-family: 'BDO Grotesk', sans-serif;
+}
+
+@keyframes ubsc-page-finance--shinyBlackText {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+:where(body:has(.ubsc-page-finance)) .animate-shiny-black {
+  background: linear-gradient(120deg, #0f172a 35%, #cbd5e1 50%, #0f172a 65%);
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: ubsc-page-finance--shinyBlackText linear infinite;
+}
+@keyframes ubsc-page-finance--shinyText {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+:where(body:has(.ubsc-page-finance)) .animate-shiny-text {
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.42), #fff 50%, rgba(255, 255, 255, 0.42));
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: ubsc-page-finance--shinyText linear infinite;
+}
+@keyframes ubsc-page-finance--fadeInUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes ubsc-page-finance--float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -6px, 0);
+  }
+}
+@keyframes ubsc-page-finance--progressFill {
+  from {
+    width: 0%;
+  }
+}
+@keyframes ubsc-page-finance--barGrow {
+  from {
+    transform: scaleY(0);
+    transform-origin: bottom;
+  }
+  to {
+    transform: scaleY(1);
+    transform-origin: bottom;
+  }
+}
+@keyframes ubsc-page-finance--scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes ubsc-page-finance--shimmerSweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+@keyframes ubsc-page-finance--btnSheen {
+  0% {
+    left: -80%;
+  }
+  100% {
+    left: 120%;
+  }
+}
+@keyframes ubsc-page-finance--dotBreath {
+  0%,
+  100% {
+    opacity: 0.86;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.16);
+  }
+}
+@keyframes ubsc-page-finance--dotHalo {
+  0%,
+  100% {
+    opacity: 0.16;
+    transform: scale(0.82);
+  }
+  50% {
+    opacity: 0.42;
+    transform: scale(1.48);
+  }
+}
+:where(body:has(.ubsc-page-finance)) .animate-fade-in-up {
+  animation: ubsc-page-finance--fadeInUp 0.62s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+  will-change: opacity, transform;
+}
+:where(body:has(.ubsc-page-finance)) .animate-scale-in {
+  animation: ubsc-page-finance--scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+:where(body:has(.ubsc-page-finance)) .animate-float {
+  animation: ubsc-page-finance--float 3.5s ease-in-out infinite;
+  will-change: transform;
+}
+:where(body:has(.ubsc-page-finance)) .progress-fill {
+  animation: ubsc-page-finance--progressFill 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+:where(body:has(.ubsc-page-finance)) .bar-grow {
+  animation: ubsc-page-finance--barGrow 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+:where(body:has(.ubsc-page-finance)) .delay-100 {
+  animation-delay: 100ms;
+}
+:where(body:has(.ubsc-page-finance)) .delay-150 {
+  animation-delay: 150ms;
+}
+:where(body:has(.ubsc-page-finance)) .delay-200 {
+  animation-delay: 200ms;
+}
+:where(body:has(.ubsc-page-finance)) .delay-250 {
+  /* v3 tidak punya utility delay-250 (hanya animation-delay dari CSS ini); v4 membuat transition-delay:250ms -> dinetralkan */
+  animation-delay: 250ms;
+  transition-delay: 0s;
+}
+:where(body:has(.ubsc-page-finance)) .delay-300 {
+  animation-delay: 300ms;
+}
+:where(body:has(.ubsc-page-finance)) .delay-400 {
+  /* v3 tidak punya utility delay-400 (hanya animation-delay dari CSS ini); v4 membuat transition-delay:400ms -> dinetralkan */
+  animation-delay: 400ms;
+  transition-delay: 0s;
+}
+:where(body:has(.ubsc-page-finance)) .card-glint {
+  position: relative;
+}
+:where(body:has(.ubsc-page-finance)) .card-glint::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 20px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 1), transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+:where(body:has(.ubsc-page-finance)) .shimmer-once {
+  position: relative;
+  overflow: hidden;
+}
+:where(body:has(.ubsc-page-finance)) .shimmer-once::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 60%;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, 0.42) 50%, transparent 100%);
+  animation: ubsc-page-finance--shimmerSweep 1.1s ease-out 0.45s forwards;
+}
+:where(body:has(.ubsc-page-finance)) .btn-sheen {
+  position: relative;
+  overflow: hidden;
+}
+:where(body:has(.ubsc-page-finance)) .btn-sheen::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+  animation: ubsc-page-finance--btnSheen 3s ease-in-out 1s infinite;
+}
+:where(body:has(.ubsc-page-finance)) .finance-live-dot {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--dot-color, #e35336);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.72),
+    0 0 9px var(--dot-halo, rgba(227, 83, 54, 0.28));
+  animation: ubsc-page-finance--dotBreath 2.8s ease-in-out infinite;
+  isolation: isolate;
+}
+:where(body:has(.ubsc-page-finance)) .finance-live-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--dot-halo, rgba(227, 83, 54, 0.22));
+  animation: ubsc-page-finance--dotHalo 2.8s ease-in-out infinite;
+}
+:where(body:has(.ubsc-page-finance)) .finance-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(227, 83, 54, 0.32) transparent;
+}
+:where(body:has(.ubsc-page-finance)) .finance-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+:where(body:has(.ubsc-page-finance)) .finance-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+:where(body:has(.ubsc-page-finance)) .finance-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(227, 83, 54, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+}
+:where(body:has(.ubsc-page-finance)) .rev-bar {
+  transition:
+    filter 0.15s ease,
+    transform 0.15s ease;
+  transform-origin: bottom;
+}
+:where(body:has(.ubsc-page-finance)) .rev-bar:hover {
+  filter: brightness(1.12);
+}
+:where(body:has(.ubsc-page-finance)) .chart-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 12px;
+  border: 1px solid;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+:where(body:has(.ubsc-page-finance)) .chart-nav-btn:active {
+  transform: scale(0.88);
+}
+:where(body:has(.ubsc-page-finance)) .chart-nav-btn.enabled {
+  border-color: #ffd5cd;
+  color: #b93d2a;
+  background: #fff;
+}
+:where(body:has(.ubsc-page-finance)) .chart-nav-btn.enabled:hover {
+  background: #fff1ee;
+  border-color: #ea684f;
+  box-shadow: 0 2px 8px rgba(227, 83, 54, 0.15);
+}
+:where(body:has(.ubsc-page-finance)) .chart-nav-btn.disabled {
+  border-color: #f1f5f9;
+  color: #cbd5e1;
+  cursor: not-allowed;
+  background: #f8fafc;
+}
+:where(body:has(.ubsc-page-finance)) .scrubber-track {
+  height: 6px;
+  background: #f1f5f9;
+  border-radius: 99px;
+  overflow: visible;
+  cursor: pointer;
+  position: relative;
+}
+:where(body:has(.ubsc-page-finance)) .scrubber-thumb {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #ea684f, #b93d2a);
+  position: absolute;
+  top: 0;
+  transition:
+    left 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    width 0.25s;
+  box-shadow: 0 1px 4px rgba(227, 83, 54, 0.3);
+}
+:where(body:has(.ubsc-page-finance)) .jump-input {
+  width: 46px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  text-align: center;
+  font-size: 10px;
+  color: #334155;
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+  -moz-appearance: textfield;
+}
+:where(body:has(.ubsc-page-finance)) .jump-input::-webkit-outer-spin-button,
+:where(body:has(.ubsc-page-finance)) .jump-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+:where(body:has(.ubsc-page-finance)) .jump-input:focus {
+  border-color: #e35336;
+  box-shadow: 0 0 0 3px rgba(227, 83, 54, 0.12);
+}
+:where(body:has(.ubsc-page-finance)) .jump-go-btn {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid #ffd5cd;
+  background: #fff1ee;
+  color: #b93d2a;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+:where(body:has(.ubsc-page-finance)) .jump-go-btn:hover {
+  background: #ffd5cd;
+  border-color: #ea684f;
+}
+:where(body:has(.ubsc-page-finance)) .jump-go-btn:active {
+  transform: scale(0.93);
+}
+
+:where(body:has(.ubsc-page-finance)) .print-finance-template {
+  display: none;
+}
+:where(body:has(.ubsc-page-finance)) .prt-a4-page {
+  width: 210mm;
+  height: auto;
+  max-height: 297mm;
+  overflow: hidden;
+  margin: 0 auto;
+  background: #fff;
+  padding: 14mm 16mm;
+  box-sizing: border-box;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 9pt;
+  color: #111;
+}
+:where(body:has(.ubsc-page-finance)) .prt-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  margin-bottom: 0;
+}
+:where(body:has(.ubsc-page-finance)) .prt-header-left {
+  width: 72pt;
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+:where(body:has(.ubsc-page-finance)) .prt-logo-img {
+  width: 68pt;
+  height: 68pt;
+  object-fit: contain;
+  display: block;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+:where(body:has(.ubsc-page-finance)) .prt-header-right {
+  flex: 1;
+  padding-left: 10pt;
+}
+:where(body:has(.ubsc-page-finance)) .prt-company-name-main {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13pt;
+  font-weight: bold;
+  letter-spacing: 0.14em;
+  line-height: 1.15;
+  margin: 0;
+}
+:where(body:has(.ubsc-page-finance)) .prt-company-name-sub {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 10pt;
+  font-weight: bold;
+  letter-spacing: 0.1em;
+  margin: 1pt 0 3pt 0;
+}
+:where(body:has(.ubsc-page-finance)) .prt-company-address {
+  font-size: 8pt;
+  line-height: 1.45;
+  margin-bottom: 4pt;
+  font-family: 'Courier New', Courier, monospace;
+}
+:where(body:has(.ubsc-page-finance)) .prt-header-divider {
+  border: none;
+  border-top: 1.5pt solid #111;
+  margin: 3pt 0 4pt 0;
+}
+:where(body:has(.ubsc-page-finance)) .prt-doc-title {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 15pt;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  text-align: center;
+  margin: 0;
+}
+:where(body:has(.ubsc-page-finance)) .prt-meta-outer {
+  display: flex;
+  gap: 0;
+  margin-top: 6pt;
+  margin-bottom: 8pt;
+  border: 0.75pt solid #444;
+}
+:where(body:has(.ubsc-page-finance)) .prt-meta-left {
+  flex: 1;
+  padding: 5pt 8pt 8pt 8pt;
+  font-size: 8.5pt;
+  border-right: 0.75pt solid #444;
+  font-family: 'Courier New', Courier, monospace;
+}
+:where(body:has(.ubsc-page-finance)) .prt-payment-note {
+  margin-top: 22pt;
+  font-size: 8pt;
+  font-weight: bold;
+  line-height: 1.75;
+  font-family: 'Courier New', Courier, monospace;
+  white-space: nowrap;
+}
+:where(body:has(.ubsc-page-finance)) .prt-meta-right {
+  width: 230pt;
+  flex-shrink: 0;
+}
+:where(body:has(.ubsc-page-finance)) .prt-meta-right table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+  font-family: 'Courier New', Courier, monospace;
+}
+:where(body:has(.ubsc-page-finance)) .prt-meta-right table td {
+  border-bottom: 0.75pt dashed #888;
+  border-left: 0.75pt dashed #888;
+  padding: 3.5pt 6pt;
+  vertical-align: middle;
+}
+:where(body:has(.ubsc-page-finance)) .prt-meta-right table td.meta-label-col {
+  width: 45%;
+  font-size: 8pt;
+  color: #555;
+  font-weight: normal;
+  white-space: nowrap;
+}
+:where(body:has(.ubsc-page-finance)) .prt-meta-right table td.meta-value-col {
+  width: 55%;
+  font-size: 8.5pt;
+  font-weight: normal;
+}
+:where(body:has(.ubsc-page-finance)) .prt-meta-right table td.meta-value-bold {
+  font-weight: bold;
+}
+:where(body:has(.ubsc-page-finance)) .prt-meta-right table tr:last-child td {
+  border-bottom: none;
+}
+:where(body:has(.ubsc-page-finance)) .prt-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 6pt;
+  font-size: 8.5pt;
+  font-family: 'Courier New', Courier, monospace;
+}
+:where(body:has(.ubsc-page-finance)) .prt-report-table th {
+  border: 0.75pt solid #111;
+  padding: 4pt 6pt;
+  text-align: center;
+  font-weight: bold;
+  background: #fff;
+  font-family: 'Courier New', Courier, monospace;
+}
+:where(body:has(.ubsc-page-finance)) .prt-report-table td {
+  border: 0.75pt solid #444;
+  padding: 4.5pt 6pt;
+  vertical-align: middle;
+  font-family: 'Courier New', Courier, monospace;
+}
+:where(body:has(.ubsc-page-finance)) .prt-report-table td.rt-center {
+  text-align: center;
+}
+:where(body:has(.ubsc-page-finance)) .prt-report-table td.rt-right {
+  text-align: right;
+}
+:where(body:has(.ubsc-page-finance)) .prt-report-table td.rt-bold {
+  font-weight: bold;
+}
+:where(body:has(.ubsc-page-finance)) .prt-report-table tr.rt-filler td {
+  color: #ddd;
+  border-color: #eee;
+}
+:where(body:has(.ubsc-page-finance)) .prt-bottom-row {
+  display: flex;
+  gap: 0;
+  margin-bottom: 0;
+}
+:where(body:has(.ubsc-page-finance)) .prt-keterangan {
+  flex: 1;
+  border: 0.75pt solid #444;
+  padding: 5pt 7pt;
+  font-size: 8.5pt;
+  min-height: 64pt;
+  font-family: 'Courier New', Courier, monospace;
+}
+:where(body:has(.ubsc-page-finance)) .prt-keterangan-label {
+  font-weight: bold;
+  font-size: 8pt;
+  display: block;
+  margin-bottom: 4pt;
+  border-bottom: 0.5pt solid #ccc;
+  padding-bottom: 2pt;
+}
+:where(body:has(.ubsc-page-finance)) .prt-summary {
+  width: 185pt;
+  flex-shrink: 0;
+}
+:where(body:has(.ubsc-page-finance)) .prt-summary table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+  font-family: 'Courier New', Courier, monospace;
+}
+:where(body:has(.ubsc-page-finance)) .prt-summary table td {
+  border: 0.75pt solid #444;
+  padding: 3.5pt 6pt;
+}
+:where(body:has(.ubsc-page-finance)) .prt-summary table td:last-child {
+  text-align: right;
+}
+:where(body:has(.ubsc-page-finance)) .prt-summary table tr.sum-total td {
+  font-weight: bold;
+}
+:where(body:has(.ubsc-page-finance)) .prt-page-footer {
+  margin-top: 10pt;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 8pt;
+  color: #555;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 0.5pt solid #ccc;
+  padding-top: 5pt;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(body:has(.ubsc-page-finance)) .animate-fade-in-up,
+  :where(body:has(.ubsc-page-finance)) .animate-float,
+  :where(body:has(.ubsc-page-finance)) .bar-grow,
+  :where(body:has(.ubsc-page-finance)) .finance-live-dot,
+  :where(body:has(.ubsc-page-finance)) .finance-live-dot::after {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  :where(body:has(.ubsc-page-finance)) * {
+    visibility: hidden !important;
+  }
+  :where(body:has(.ubsc-page-finance)) .print-finance-template,
+  :where(body:has(.ubsc-page-finance)) .print-finance-template * {
+    visibility: visible !important;
+  }
+  :where(body:has(.ubsc-page-finance)) .print-finance-template {
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    z-index: 99999 !important;
+  }
+  :where(body:has(.ubsc-page-finance)) .prt-a4-page {
+    width: 210mm !important;
+    height: auto !important;
+    min-height: unset !important;
+    max-height: 297mm !important;
+    overflow: hidden !important;
+    padding: 14mm 16mm !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+  :where(body:has(.ubsc-page-finance)) .prt-logo-img {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    width: 68pt !important;
+    height: 68pt !important;
+  }
+}

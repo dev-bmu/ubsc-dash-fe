@@ -6,15 +6,15 @@ import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { canAccessPathByRole } from '@/config/permissions'
 import { routes } from '@/config/routes'
 import { DynamicSkeleton } from '@/components/ui/dynamic-skeleton'
+import { AdminLayout } from '@/components/layout/AdminLayout'
 
-// ===== Penjaga akses =====
+// ===== Penjaga akses + chrome =====
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
 
   // Dihitung sekali, dipakai dua kali (efek pengalihan + keputusan render).
-  // Boilerplate memanggil canAccessPathByRole() dua kali dan sempat tidak sinkron.
   const isAuthorized = useMemo(() => {
     if (!user) return false
     return canAccessPathByRole(pathname, user.role, user.permissions)
@@ -43,23 +43,15 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     return <DynamicSkeleton variant="fullPageLoader" loaderText="Mengalihkan..." />
   }
 
-  return <>{children}</>
+  // Chrome dipasang DI SINI (bukan lewat <PageContainer title> per halaman): Sidebar + Topbar
+  // di-port 1:1 dari Laravel. Layout ini tidak re-mount saat navigasi, jadi collapse Sidebar
+  // (localStorage) + posisi scroll bertahan. Halaman 403 (/unauthorized) juga hidup di grup ini
+  // sehingga tampil BERSAMA chrome — sama seperti Forbidden Laravel yang membungkus AdminLayout
+  // untuk staff.
+  return <AdminLayout>{children}</AdminLayout>
 }
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
-  // TODO Fase 7: chrome panel dipasang DI SINI, bukan lewat <PageContainer title> per halaman
-  // (menyimpang dari boilerplate, disengaja):
-  //   - Sidebar (46 KB) dan Topbar (61 KB) dari Laravel di-port APA ADANYA. Jangan dibangun
-  //     ulang di atas shadcn sidebar.tsx — shadcn memaksakan lebar berbasis CSS variable,
-  //     sibling SidebarInset, mobile berbasis Sheet, dan semantik group-data-[collapsible=icon];
-  //     Sidebar UBSC punya collapse ter-persist di localStorage, children bersarang, pill
-  //     terracotta dengan shimmer, dan keyframes masuknya sendiri.
-  //   - Perilaku badge "Locked" DIPERTAHANKAN: item yang tidak bisa diakses tetap tampil,
-  //     abu-abu, dengan pill "Locked" dan tooltip "Akses belum diberikan oleh Administrator" —
-  //     BUKAN disembunyikan seperti boilerplate.
-  //   - Topbar menurunkan judulnya sendiri dari tabel pattern, jadi halaman tidak mengirim prop title.
-  // Layout ini tidak boleh re-mount saat navigasi: itu yang menjaga posisi scroll dan state
-  // collapse sidebar bertahan antar halaman.
   return (
     <AuthProvider>
       <AuthGuard>{children}</AuthGuard>

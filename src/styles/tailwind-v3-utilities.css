@@ -1,0 +1,255 @@
+/* ============================================================================
+   KOMPAT TAILWIND v3 — utilitas
+   ----------------------------------------------------------------------------
+   Variabel warna prose v3, gradien sRGB, line-height skala font v3, drop-shadow dua lapis.
+   DIHASILKAN tools/fidelity-harness/assemble.mjs --emit-dir. Jangan disunting tangan: ubah assemble.mjs
+   atau sumbernya, jalankan ulang pipeline, dan pastikan gate harness tetap bersih.
+   ============================================================================ */
+
+@layer utilities {
+  /*
+  TYPOGRAPHY — variabel warna prose bernilai v3 (lihat catatan di assemble.mjs)
+*/
+
+  .prose {
+    --tw-prose-body: #374151;
+    --tw-prose-headings: #111827;
+    --tw-prose-lead: #4b5563;
+    --tw-prose-links: #111827;
+    --tw-prose-bold: #111827;
+    --tw-prose-counters: #6b7280;
+    --tw-prose-bullets: #d1d5db;
+    --tw-prose-hr: #e5e7eb;
+    --tw-prose-quotes: #111827;
+    --tw-prose-quote-borders: #e5e7eb;
+    --tw-prose-captions: #6b7280;
+    --tw-prose-kbd: #111827;
+    --tw-prose-kbd-shadows: rgb(17 24 39 / 10%);
+    --tw-prose-code: #111827;
+    --tw-prose-pre-code: #e5e7eb;
+    --tw-prose-pre-bg: #1f2937;
+    --tw-prose-th-borders: #d1d5db;
+    --tw-prose-td-borders: #e5e7eb;
+    --tw-prose-invert-body: #d1d5db;
+    --tw-prose-invert-headings: #fff;
+    --tw-prose-invert-lead: #9ca3af;
+    --tw-prose-invert-links: #fff;
+    --tw-prose-invert-bold: #fff;
+    --tw-prose-invert-counters: #9ca3af;
+    --tw-prose-invert-bullets: #4b5563;
+    --tw-prose-invert-hr: #374151;
+    --tw-prose-invert-quotes: #f3f4f6;
+    --tw-prose-invert-quote-borders: #374151;
+    --tw-prose-invert-captions: #9ca3af;
+    --tw-prose-invert-kbd: #fff;
+    --tw-prose-invert-kbd-shadows: rgb(255 255 255 / 10%);
+    --tw-prose-invert-code: #fff;
+    --tw-prose-invert-pre-code: #d1d5db;
+    --tw-prose-invert-pre-bg: rgb(0 0 0 / 50%);
+    --tw-prose-invert-th-borders: #4b5563;
+    --tw-prose-invert-td-borders: #374151;
+  }
+
+  .prose-slate {
+    --tw-prose-body: #334155;
+    --tw-prose-headings: #0f172a;
+    --tw-prose-lead: #475569;
+    --tw-prose-links: #0f172a;
+    --tw-prose-bold: #0f172a;
+    --tw-prose-counters: #64748b;
+    --tw-prose-bullets: #cbd5e1;
+    --tw-prose-hr: #e2e8f0;
+    --tw-prose-quotes: #0f172a;
+    --tw-prose-quote-borders: #e2e8f0;
+    --tw-prose-captions: #64748b;
+    --tw-prose-kbd: #0f172a;
+    --tw-prose-kbd-shadows: rgb(15 23 42 / 10%);
+    --tw-prose-code: #0f172a;
+    --tw-prose-pre-code: #e2e8f0;
+    --tw-prose-pre-bg: #1e293b;
+    --tw-prose-th-borders: #cbd5e1;
+    --tw-prose-td-borders: #e2e8f0;
+    --tw-prose-invert-body: #cbd5e1;
+    --tw-prose-invert-headings: #fff;
+    --tw-prose-invert-lead: #94a3b8;
+    --tw-prose-invert-links: #fff;
+    --tw-prose-invert-bold: #fff;
+    --tw-prose-invert-counters: #94a3b8;
+    --tw-prose-invert-bullets: #475569;
+    --tw-prose-invert-hr: #334155;
+    --tw-prose-invert-quotes: #f1f5f9;
+    --tw-prose-invert-quote-borders: #334155;
+    --tw-prose-invert-captions: #94a3b8;
+    --tw-prose-invert-kbd: #fff;
+    --tw-prose-invert-kbd-shadows: rgb(255 255 255 / 10%);
+    --tw-prose-invert-code: #fff;
+    --tw-prose-invert-pre-code: #cbd5e1;
+    --tw-prose-invert-pre-bg: rgb(0 0 0 / 50%);
+    --tw-prose-invert-th-borders: #475569;
+    --tw-prose-invert-td-borders: #334155;
+  }
+}
+
+/* ============================================================================
+   GRADIEN — interpolasi sRGB seperti v3
+   ----------------------------------------------------------------------------
+   v4 bg-linear-to-* memakai "to <arah> in oklab" di browser yang mendukung; v3
+   menginterpolasi di sRGB. Titik tengah gradien multi-stop bergeser (101 string class
+   UBSC memakai gradien). @utility di bawah menimpa utilitas bawaan dengan nama yang
+   sama — keluarannya ditulis setelah utilitas inti, jadi menang pada spesifisitas sama.
+   ============================================================================ */
+
+@utility bg-linear-to-t {
+  --tw-gradient-position: to top in srgb;
+  background-image: linear-gradient(var(--tw-gradient-stops));
+}
+
+@utility bg-linear-to-tr {
+  --tw-gradient-position: to top right in srgb;
+  background-image: linear-gradient(var(--tw-gradient-stops));
+}
+
+@utility bg-linear-to-r {
+  --tw-gradient-position: to right in srgb;
+  background-image: linear-gradient(var(--tw-gradient-stops));
+}
+
+@utility bg-linear-to-br {
+  --tw-gradient-position: to bottom right in srgb;
+  background-image: linear-gradient(var(--tw-gradient-stops));
+}
+
+@utility bg-linear-to-b {
+  --tw-gradient-position: to bottom in srgb;
+  background-image: linear-gradient(var(--tw-gradient-stops));
+}
+
+@utility bg-linear-to-bl {
+  --tw-gradient-position: to bottom left in srgb;
+  background-image: linear-gradient(var(--tw-gradient-stops));
+}
+
+@utility bg-linear-to-l {
+  --tw-gradient-position: to left in srgb;
+  background-image: linear-gradient(var(--tw-gradient-stops));
+}
+
+@utility bg-linear-to-tl {
+  --tw-gradient-position: to top left in srgb;
+  background-image: linear-gradient(var(--tw-gradient-stops));
+}
+
+/* ============================================================================
+   LINE-HEIGHT SKALA FONT v3
+   ----------------------------------------------------------------------------
+   v4: line-height text-* = rasio tanpa satuan + dibaca lewat var(--tw-leading, ...).
+   v3: rem absolut, dan urutan CSS (bukan --tw-leading) yang menentukan pemenang
+   antara text-* dan leading-*. Keduanya dikembalikan di sini.
+   ============================================================================ */
+
+@theme {
+  --text-xs--line-height: 1rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl--line-height: 2.5rem;
+  --text-5xl--line-height: 1;
+  --text-6xl--line-height: 1;
+  --text-7xl--line-height: 1;
+  --text-8xl--line-height: 1;
+  --text-9xl--line-height: 1;
+}
+
+@utility text-xs {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+}
+
+@utility text-sm {
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+}
+
+@utility text-base {
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
+}
+
+@utility text-lg {
+  font-size: var(--text-lg);
+  line-height: var(--text-lg--line-height);
+}
+
+@utility text-xl {
+  font-size: var(--text-xl);
+  line-height: var(--text-xl--line-height);
+}
+
+@utility text-2xl {
+  font-size: var(--text-2xl);
+  line-height: var(--text-2xl--line-height);
+}
+
+@utility text-3xl {
+  font-size: var(--text-3xl);
+  line-height: var(--text-3xl--line-height);
+}
+
+@utility text-4xl {
+  font-size: var(--text-4xl);
+  line-height: var(--text-4xl--line-height);
+}
+
+@utility text-5xl {
+  font-size: var(--text-5xl);
+  line-height: var(--text-5xl--line-height);
+}
+
+@utility text-6xl {
+  font-size: var(--text-6xl);
+  line-height: var(--text-6xl--line-height);
+}
+
+@utility text-7xl {
+  font-size: var(--text-7xl);
+  line-height: var(--text-7xl--line-height);
+}
+
+@utility text-8xl {
+  font-size: var(--text-8xl);
+  line-height: var(--text-8xl--line-height);
+}
+
+@utility text-9xl {
+  font-size: var(--text-9xl);
+  line-height: var(--text-9xl--line-height);
+}
+
+/* drop-shadow v3 dua lapis — lihat catatan 2c di assemble.mjs */
+
+@utility drop-shadow-sm {
+  --tw-drop-shadow: drop-shadow(0 1px 2px rgb(0 0 0 / 0.1)) drop-shadow(0 1px 1px rgb(0 0 0 / 0.06));
+  filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,)
+    var(--tw-sepia,) var(--tw-drop-shadow,);
+}
+
+@utility drop-shadow-md {
+  --tw-drop-shadow: drop-shadow(0 4px 3px rgb(0 0 0 / 0.07)) drop-shadow(0 2px 2px rgb(0 0 0 / 0.06));
+  filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,)
+    var(--tw-sepia,) var(--tw-drop-shadow,);
+}
+
+@utility drop-shadow-lg {
+  --tw-drop-shadow: drop-shadow(0 10px 8px rgb(0 0 0 / 0.04)) drop-shadow(0 4px 3px rgb(0 0 0 / 0.1));
+  filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,)
+    var(--tw-sepia,) var(--tw-drop-shadow,);
+}
+
+@utility drop-shadow-xl {
+  --tw-drop-shadow: drop-shadow(0 20px 13px rgb(0 0 0 / 0.03)) drop-shadow(0 8px 5px rgb(0 0 0 / 0.08));
+  filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,)
+    var(--tw-sepia,) var(--tw-drop-shadow,);
+}

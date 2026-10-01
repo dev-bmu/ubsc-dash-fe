@@ -1,0 +1,133 @@
+/* SCOPED ke halaman: setiap selector diawali :where(body:has(.ubsc-page-settings-schedules)) dan setiap @keyframes diberi
+   prefix 'ubsc-page-settings-schedules--'. Prefix dibungkus :where() agar specificity tiap aturan TETAP sama dengan aslinya.
+   Alasan: di Next App Router stylesheet halaman yang sudah dimuat TIDAK dibuang saat navigasi,
+   sehingga class bernama sama dengan nilai berbeda antar-halaman (di sini .font-clash / .font-bdo serta
+   keyframes schedule* bertabrakan dengan milik halaman lain) saling bocor.
+   Di Laravel tiap halaman menyuntik tag style sendiri yang hilang saat pindah halaman.
+   Penanda .ubsc-page-settings-schedules dipasang di elemen root halaman. Jangan tambah selector tanpa prefix ini. */
+:where(body:has(.ubsc-page-settings-schedules)) .font-clash {
+  font-family: 'Clash Display', sans-serif;
+}
+:where(body:has(.ubsc-page-settings-schedules)) .font-bdo {
+  font-family: 'BDO Grotesk', sans-serif;
+}
+
+@keyframes ubsc-page-settings-schedules--scheduleRise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes ubsc-page-settings-schedules--scheduleShine {
+  0% {
+    background-position: -190% center;
+  }
+  100% {
+    background-position: 210% center;
+  }
+}
+@keyframes ubsc-page-settings-schedules--scheduleSweep {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(190%);
+  }
+}
+@keyframes ubsc-page-settings-schedules--scheduleGlow {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.16);
+  }
+}
+:where(body:has(.ubsc-page-settings-schedules)) .schedule-enter {
+  animation: ubsc-page-settings-schedules--scheduleRise 0.58s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity, transform;
+}
+:where(body:has(.ubsc-page-settings-schedules)) .schedule-title-shine {
+  background: linear-gradient(115deg, #0f172a 34%, #cbd5e1 49%, #0f172a 64%);
+  background-size: 220% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: ubsc-page-settings-schedules--scheduleShine 5s linear infinite;
+}
+:where(body:has(.ubsc-page-settings-schedules)) .schedule-card-glint {
+  position: relative;
+}
+:where(body:has(.ubsc-page-settings-schedules)) .schedule-card-glint::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 22px;
+  right: 22px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.96), transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+:where(body:has(.ubsc-page-settings-schedules)) .schedule-sheen {
+  position: relative;
+  overflow: hidden;
+}
+:where(body:has(.ubsc-page-settings-schedules)) .schedule-sheen::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  width: 50%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.32), transparent);
+  animation: ubsc-page-settings-schedules--scheduleSweep 1s ease-out 0.32s forwards;
+  pointer-events: none;
+}
+:where(body:has(.ubsc-page-settings-schedules)) .schedule-live-dot {
+  display: inline-block;
+  border-radius: 999px;
+  animation: ubsc-page-settings-schedules--scheduleGlow 2.4s ease-in-out infinite;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.72),
+    0 0 14px currentColor;
+}
+:where(body:has(.ubsc-page-settings-schedules)) .schedule-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(227, 83, 54, 0.34) transparent;
+}
+:where(body:has(.ubsc-page-settings-schedules)) .schedule-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+:where(body:has(.ubsc-page-settings-schedules)) .schedule-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+:where(body:has(.ubsc-page-settings-schedules)) .schedule-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(227, 83, 54, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+}
+:where(body:has(.ubsc-page-settings-schedules)) .schedule-touch-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  scroll-snap-type: x proximity;
+}
+:where(body:has(.ubsc-page-settings-schedules)) .schedule-snap-item {
+  scroll-snap-align: start;
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(body:has(.ubsc-page-settings-schedules)) .schedule-enter,
+  :where(body:has(.ubsc-page-settings-schedules)) .schedule-title-shine,
+  :where(body:has(.ubsc-page-settings-schedules)) .schedule-sheen::after,
+  :where(body:has(.ubsc-page-settings-schedules)) .schedule-live-dot {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

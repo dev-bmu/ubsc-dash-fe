@@ -1,0 +1,79 @@
+/* SCOPED ke halaman: setiap selector diawali :where(body:has(.ubsc-page-facility-pricing)) dan setiap @keyframes diberi prefix
+   'ubsc-page-facility-pricing--'. Alasan: di Next App Router stylesheet halaman yang sudah dimuat TIDAK dibuang saat navigasi,
+   sehingga class bernama sama dengan nilai berbeda antar-halaman (dan aturan global seperti body * / *)
+   saling bocor. Di Laravel tiap halaman menyuntik <style> sendiri yang hilang saat pindah halaman.
+   Penanda .ubsc-page-facility-pricing dipasang di elemen root halaman. Jangan tambah selector tanpa prefix ini. */
+:where(body:has(.ubsc-page-facility-pricing)) .font-clash {
+  font-family: 'Clash Display', sans-serif;
+}
+:where(body:has(.ubsc-page-facility-pricing)) .font-bdo {
+  font-family: 'BDO Grotesk', sans-serif;
+}
+
+@keyframes ubsc-page-facility-pricing--priceFadeUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes ubsc-page-facility-pricing--priceSheen {
+  0% {
+    background-position: -120% center;
+  }
+  100% {
+    background-position: 220% center;
+  }
+}
+@keyframes ubsc-page-facility-pricing--pricePulse {
+  0%,
+  100% {
+    box-shadow: 0 14px 28px -22px rgba(227, 83, 54, 0.9);
+  }
+  50% {
+    box-shadow:
+      0 18px 36px -22px rgba(227, 83, 54, 1),
+      0 0 24px rgba(227, 83, 54, 0.13);
+  }
+}
+:where(body:has(.ubsc-page-facility-pricing)) .price-enter {
+  animation: ubsc-page-facility-pricing--priceFadeUp 0.62s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+:where(body:has(.ubsc-page-facility-pricing)) .price-title-shine {
+  background: linear-gradient(110deg, #0f172a 0%, #0f172a 36%, #e35336 50%, #0f172a 64%, #0f172a 100%);
+  background-size: 240% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: ubsc-page-facility-pricing--priceSheen 5s linear infinite;
+}
+:where(body:has(.ubsc-page-facility-pricing)) .price-icon-live {
+  animation: ubsc-page-facility-pricing--pricePulse 3.4s ease-in-out infinite;
+}
+:where(body:has(.ubsc-page-facility-pricing)) .price-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(227, 83, 54, 0.34) transparent;
+}
+:where(body:has(.ubsc-page-facility-pricing)) .price-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+:where(body:has(.ubsc-page-facility-pricing)) .price-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+:where(body:has(.ubsc-page-facility-pricing)) .price-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(227, 83, 54, 0.34);
+  border-radius: 999px;
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(body:has(.ubsc-page-facility-pricing)) .price-enter,
+  :where(body:has(.ubsc-page-facility-pricing)) .price-title-shine,
+  :where(body:has(.ubsc-page-facility-pricing)) .price-icon-live {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

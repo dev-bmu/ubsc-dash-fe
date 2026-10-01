@@ -2,6 +2,7 @@ import { AUTH_BASE } from '@/config/auth'
 import axiosInstance from '@/lib/axios'
 import type { ApiError } from '@/types/api/api'
 import type { LoginRequest, LoginResponse, LogoutResponse, SessionInfo } from '@/types/api/auth'
+import type { ApiSuccess } from '@/types/contracts/contracts'
 
 const toApiError = (error: unknown, message: string, code: string): ApiError => {
   if (typeof error === 'object' && error !== null && 'response' in error) {
@@ -17,8 +18,11 @@ const toApiError = (error: unknown, message: string, code: string): ApiError => 
 
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {
   try {
-    const response = await axiosInstance.post<LoginResponse>(`${AUTH_BASE}/login`, data)
-    return response.data
+    // ubsc-api SELALU membungkus payload sukses dalam envelope { success, data }. Boilerplate
+    // membaca response.data langsung sehingga data.accessToken selalu undefined (bug ini tertutup
+    // oleh /refresh yang menyusul); di sini di-unwrap ke response.data.data.
+    const response = await axiosInstance.post<ApiSuccess<LoginResponse>>(`${AUTH_BASE}/login`, data)
+    return response.data.data
   } catch (error: unknown) {
     throw toApiError(error, 'Gagal login', 'LOGIN_ERROR')
   }

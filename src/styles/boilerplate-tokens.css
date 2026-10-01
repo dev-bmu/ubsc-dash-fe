@@ -1,0 +1,70 @@
+/* ============================================================================
+   TOKEN KOMPONEN BOILERPLATE (STARTER-BMU) YANG TIDAK ADA DI LARAVEL
+   ----------------------------------------------------------------------------
+   Primitif shadcn warisan boilerplate (sidebar admin, kartu statistik, chart) memakai token yang
+   tidak pernah didefinisikan app.css Laravel. Berkas ini HANYA menambah token bernama baru — tidak
+   menimpa satu pun token Laravel (background, primary, radius, shadow, ring, ...), karena setiap
+   penimpaan mengubah utilitas yang dipakai halaman Laravel yang di-port dan membatalkan gate Fase 2.
+
+   Yang sengaja DIBUANG dari globals.css Fase 0:
+   - --primary navy, --ring navy        -> Laravel memakai 0 0% 9% / 0 0% 3.9%
+   - --shadow-* oklch, --radius-xl      -> mengubah shadow-sm/md/lg dan rounded-xl Laravel
+   - * { border-border outline-ring/50 } dan body { bg-background text-foreground }
+                                        -> tidak ada di base layer Laravel; warna border default
+                                           Laravel adalah gray-200 (kompat preflight v3)
+   - token --chart-*                    -> Laravel sudah memetakan --color-chart-* = hsl(var(--chart-*))
+                                           dan tidak ada kode yang memakainya
+   - next/font Plus Jakarta Sans        -> font UBSC lewat @font-face di ubsc-base.css
+
+   Nilai di bawah disalin dari globals.css Fase 0 apa adanya; komponen yang memakainya belum
+   dirancang ulang dan akan diganti komponen port Laravel di Fase 4–8.
+   ============================================================================ */
+
+@layer base {
+  :root {
+    --sidebar: hsl(0 0% 100%);
+    --sidebar-foreground: hsl(0 0% 45.1%);
+    --sidebar-primary: #0b1e3b;
+    --sidebar-primary-foreground: hsl(0 0% 98%);
+    --sidebar-accent: hsl(0 0% 96.1%);
+    --sidebar-accent-foreground: hsl(0 0% 9%);
+    --sidebar-border: hsl(0 0% 89.8%);
+    --sidebar-ring: #0e2444;
+
+    --stat-blue: oklch(0.58 0.15 245);
+    --stat-blue-soft: oklch(0.96 0.03 245);
+    --stat-emerald: oklch(0.56 0.13 160);
+    --stat-emerald-soft: oklch(0.96 0.04 160);
+    --stat-amber: oklch(0.7 0.15 75);
+    --stat-amber-soft: oklch(0.97 0.05 85);
+    --stat-purple: oklch(0.58 0.18 300);
+    --stat-purple-soft: oklch(0.96 0.04 300);
+    --stat-rose: oklch(0.62 0.18 20);
+    --stat-rose-soft: oklch(0.96 0.03 20);
+  }
+}
+
+@theme inline {
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-stat-blue: var(--stat-blue);
+  --color-stat-blue-soft: var(--stat-blue-soft);
+  --color-stat-emerald: var(--stat-emerald);
+  --color-stat-emerald-soft: var(--stat-emerald-soft);
+  --color-stat-amber: var(--stat-amber);
+  --color-stat-amber-soft: var(--stat-amber-soft);
+  --color-stat-purple: var(--stat-purple);
+  --color-stat-purple-soft: var(--stat-purple-soft);
+  --color-stat-rose: var(--stat-rose);
+  --color-stat-rose-soft: var(--stat-rose-soft);
+
+  /* Dipakai satu judul sidebar boilerplate; Laravel tidak punya font "display" terpisah. */
+  --font-display: var(--font-sans);
+}

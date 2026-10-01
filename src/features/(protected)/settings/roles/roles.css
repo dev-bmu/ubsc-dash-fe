@@ -1,0 +1,161 @@
+/* SCOPED ke halaman: setiap selector diawali :where(body:has(.ubsc-page-settings-roles)) dan setiap @keyframes diberi prefix
+   'ubsc-page-settings-roles--'. Prefix dibungkus :where() agar specificity tiap aturan TETAP sama dengan aslinya.
+   Alasan: di Next App Router stylesheet halaman yang sudah dimuat TIDAK dibuang saat navigasi,
+   sehingga class bernama sama dengan nilai berbeda antar-halaman (dan aturan global seperti body * / *)
+   saling bocor. Di Laravel tiap halaman menyuntik \3c style> sendiri yang hilang saat pindah halaman.
+   Penanda .ubsc-page-settings-roles dipasang di elemen root halaman. Jangan tambah selector tanpa prefix ini. */
+/* Diekstrak dari \3c style> injeksi Laravel Pages/Admin/Settings/Roles.tsx (ROLE_STYLES, Fase 8G).
+   Isi disalin apa adanya (keyframe, nama class, nilai) — DOM-neutral + mencegah FOUC. */
+
+:where(body:has(.ubsc-page-settings-roles)) .font-clash {
+  font-family: 'Clash Display', sans-serif;
+}
+:where(body:has(.ubsc-page-settings-roles)) .font-bdo {
+  font-family: 'BDO Grotesk', sans-serif;
+}
+
+@keyframes ubsc-page-settings-roles--roleRise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes ubsc-page-settings-roles--roleShine {
+  0% {
+    background-position: -180% center;
+  }
+  100% {
+    background-position: 220% center;
+  }
+}
+@keyframes ubsc-page-settings-roles--roleSweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(190%);
+  }
+}
+@keyframes ubsc-page-settings-roles--rolePulse {
+  0%,
+  100% {
+    opacity: 0.78;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.16);
+  }
+}
+
+:where(body:has(.ubsc-page-settings-roles)) .role-enter {
+  animation: ubsc-page-settings-roles--roleRise 0.58s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity, transform;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-title-shine {
+  background: linear-gradient(115deg, #0f172a 34%, #cbd5e1 49%, #0f172a 64%);
+  background-size: 220% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: ubsc-page-settings-roles--roleShine 5s linear infinite;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-card-glint {
+  position: relative;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-card-glint::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 18px;
+  right: 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.96), transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-sheen {
+  position: relative;
+  overflow: hidden;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-sheen::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  width: 48%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.32), transparent);
+  animation: ubsc-page-settings-roles--roleSweep 1s ease-out 0.35s forwards;
+  pointer-events: none;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-live-dot {
+  display: inline-block;
+  border-radius: 999px;
+  animation: ubsc-page-settings-roles--rolePulse 2.4s ease-in-out infinite;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.72),
+    0 0 13px currentColor;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(227, 83, 54, 0.34) transparent;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(227, 83, 54, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-touch-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  scroll-snap-type: x proximity;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-delay-0 {
+  animation-delay: 0ms;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-delay-1 {
+  animation-delay: 60ms;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-delay-2 {
+  animation-delay: 120ms;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-delay-3 {
+  animation-delay: 180ms;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-delay-4 {
+  animation-delay: 240ms;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-delay-5 {
+  animation-delay: 300ms;
+}
+:where(body:has(.ubsc-page-settings-roles)) .role-grid-surface {
+  background-image:
+    radial-gradient(circle at 92% 8%, rgba(227, 83, 54, 0.16), transparent 28%), linear-gradient(90deg, rgba(227, 83, 54, 0.06) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(227, 83, 54, 0.045) 1px, transparent 1px), linear-gradient(135deg, #ffffff 0%, #fff9f7 100%);
+  background-size:
+    auto,
+    22px 22px,
+    22px 22px,
+    auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(body:has(.ubsc-page-settings-roles)) .role-enter,
+  :where(body:has(.ubsc-page-settings-roles)) .role-title-shine,
+  :where(body:has(.ubsc-page-settings-roles)) .role-sheen::after,
+  :where(body:has(.ubsc-page-settings-roles)) .role-live-dot {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

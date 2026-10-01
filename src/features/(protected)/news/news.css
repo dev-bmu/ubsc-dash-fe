@@ -1,0 +1,287 @@
+/* SCOPED ke halaman: setiap selector diawali :where(body:has(.ubsc-page-news)) dan setiap @keyframes diberi prefix
+   'ubsc-page-news--'. Prefix dibungkus :where() agar specificity tiap aturan TETAP sama dengan aslinya.
+   Alasan: di Next App Router stylesheet halaman yang sudah dimuat TIDAK dibuang saat navigasi,
+   sehingga class bernama sama dengan nilai berbeda antar-halaman (di sini .animate-shiny-black /
+   .animate-shiny-text / .delay-* bertabrakan dengan milik dashboard, finance & identity) saling bocor.
+   Di Laravel tiap halaman mengimpor CSS-nya sendiri yang hilang saat pindah halaman.
+   Penanda .ubsc-page-news dipasang di elemen root halaman. Jangan tambah selector tanpa prefix ini.
+   Sumber 1:1: resources/js/Pages/Admin/News/Index.css. */
+:where(body:has(.ubsc-page-news)) .font-clash {
+  font-family: 'Clash Display', sans-serif;
+}
+:where(body:has(.ubsc-page-news)) .font-bdo {
+  font-family: 'BDO Grotesk', sans-serif;
+}
+
+@keyframes ubsc-page-news--fadeInUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes ubsc-page-news--shinyBlackText {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+@keyframes ubsc-page-news--shinyText {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+@keyframes ubsc-page-news--scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes ubsc-page-news--barRise {
+  from {
+    transform: scaleY(0);
+    opacity: 0.35;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+@keyframes ubsc-page-news--sheen {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(160%);
+  }
+}
+@keyframes ubsc-page-news--livePulse {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
+}
+
+:where(body:has(.ubsc-page-news)) .news-enter {
+  animation: ubsc-page-news--fadeInUp 0.58s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+:where(body:has(.ubsc-page-news)) .news-scale {
+  animation: ubsc-page-news--scaleIn 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+:where(body:has(.ubsc-page-news)) .animate-shiny-black {
+  background: linear-gradient(120deg, #0f172a 35%, #cbd5e1 50%, #0f172a 65%);
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: ubsc-page-news--shinyBlackText linear infinite;
+}
+:where(body:has(.ubsc-page-news)) .animate-shiny-text {
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.42), #fff 50%, rgba(255, 255, 255, 0.42));
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: ubsc-page-news--shinyText linear infinite;
+}
+:where(body:has(.ubsc-page-news)) .shiny-speed-3 {
+  animation-duration: 3s;
+}
+:where(body:has(.ubsc-page-news)) .shiny-speed-4 {
+  animation-duration: 4s;
+}
+:where(body:has(.ubsc-page-news)) .shiny-speed-5 {
+  animation-duration: 5s;
+}
+
+:where(body:has(.ubsc-page-news)) .delay-50 {
+  /* v3 tidak punya utility delay-50 (hanya animation-delay dari CSS ini); v4 membuat transition-delay:50ms -> dinetralkan */
+  animation-delay: 50ms;
+  transition-delay: 0s;
+}
+:where(body:has(.ubsc-page-news)) .delay-100 {
+  animation-delay: 100ms;
+}
+:where(body:has(.ubsc-page-news)) .delay-150 {
+  animation-delay: 150ms;
+}
+:where(body:has(.ubsc-page-news)) .delay-200 {
+  animation-delay: 200ms;
+}
+:where(body:has(.ubsc-page-news)) .delay-250 {
+  /* v3 tidak punya utility delay-250 (hanya animation-delay dari CSS ini); v4 membuat transition-delay:250ms -> dinetralkan */
+  animation-delay: 250ms;
+  transition-delay: 0s;
+}
+:where(body:has(.ubsc-page-news)) .delay-300 {
+  animation-delay: 300ms;
+}
+
+:where(body:has(.ubsc-page-news)) .news-card-glint {
+  position: relative;
+}
+:where(body:has(.ubsc-page-news)) .news-card-glint::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 22px;
+  right: 22px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.92), transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+:where(body:has(.ubsc-page-news)) .news-sheen {
+  position: relative;
+  overflow: hidden;
+}
+:where(body:has(.ubsc-page-news)) .news-sheen::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  width: 55%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  animation: ubsc-page-news--sheen 1.15s ease-out 0.45s forwards;
+  pointer-events: none;
+}
+:where(body:has(.ubsc-page-news)) .news-live-dot {
+  animation: ubsc-page-news--livePulse 2.4s ease-in-out infinite;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.75),
+    0 0 14px currentColor;
+}
+:where(body:has(.ubsc-page-news)) .news-bar {
+  animation: ubsc-page-news--barRise 0.68s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: bottom;
+}
+:where(body:has(.ubsc-page-news)) .news-input {
+  border: 1px solid rgb(226 232 240 / 0.9);
+  background: rgb(248 250 252 / 0.72);
+  color: #0f172a;
+  outline: none;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    background 0.16s ease;
+}
+:where(body:has(.ubsc-page-news)) .news-input:focus {
+  border-color: rgb(227 83 54 / 0.45);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgb(227 83 54 / 0.08);
+}
+:where(body:has(.ubsc-page-news)) .news-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(227, 83, 54, 0.32) transparent;
+}
+:where(body:has(.ubsc-page-news)) .news-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+:where(body:has(.ubsc-page-news)) .news-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+:where(body:has(.ubsc-page-news)) .news-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(227, 83, 54, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+:where(body:has(.ubsc-page-news)) .news-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(227, 83, 54, 0.48);
+}
+
+:where(body:has(.ubsc-page-news)) .news-w-0 {
+  width: 0%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-5 {
+  width: 5%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-10 {
+  width: 10%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-15 {
+  width: 15%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-20 {
+  width: 20%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-25 {
+  width: 25%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-30 {
+  width: 30%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-35 {
+  width: 35%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-40 {
+  width: 40%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-45 {
+  width: 45%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-50 {
+  width: 50%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-55 {
+  width: 55%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-60 {
+  width: 60%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-65 {
+  width: 65%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-70 {
+  width: 70%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-75 {
+  width: 75%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-80 {
+  width: 80%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-85 {
+  width: 85%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-90 {
+  width: 90%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-95 {
+  width: 95%;
+}
+:where(body:has(.ubsc-page-news)) .news-w-100 {
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(body:has(.ubsc-page-news)) .news-enter,
+  :where(body:has(.ubsc-page-news)) .news-scale,
+  :where(body:has(.ubsc-page-news)) .news-bar,
+  :where(body:has(.ubsc-page-news)) .news-sheen::after,
+  :where(body:has(.ubsc-page-news)) .news-live-dot,
+  :where(body:has(.ubsc-page-news)) .animate-shiny-black,
+  :where(body:has(.ubsc-page-news)) .animate-shiny-text {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

@@ -12,6 +12,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "sync:contracts": "node scripts/sync-contracts.mjs",
+    "sync:design-system": "node scripts/sync-design-system.mjs",
+    "check:design-system": "node scripts/sync-design-system.mjs --check",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,mdx}\" --cache"
   },
@@ -58,7 +60,9 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.7",
-    "@tailwindcss/postcss": "^4.3.3",
+    "@tailwindcss/forms": "0.5.11",
+    "@tailwindcss/postcss": "4.3.3",
+    "@tailwindcss/typography": "0.5.20",
     "@types/node": "^24.13.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -66,7 +70,8 @@
     "eslint-config-next": "^15.5.25",
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
-    "tailwindcss": "^4.3.3",
+    "tailwindcss": "4.3.3",
+    "tailwindcss-animate": "1.0.7",
     "typescript": "^5.9.3"
   }
 }
