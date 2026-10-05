@@ -17,13 +17,7 @@ runContractCheck()
 
 export const metadata: Metadata = {
   title: 'UBSC Admin',
-  description: 'Panel pengelolaan UBS Port Center',
-  icons: {
-    // TODO Fase 9: ganti dengan favicon UBSC hasil diet aset.
-    icon: '/img/favicon.svg',
-    shortcut: '/img/favicon.svg',
-    apple: '/img/favicon.svg'
-  },
+  description: 'Panel pengelolaan UB Sport Center',
   robots: {
     // Panel internal: jangan pernah diindeks.
     index: false,
