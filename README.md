@@ -50,7 +50,7 @@ npm run format:write
 npm run sync:contracts   # jalankan tiap kali ada perubahan di ubsc-api/shared
 ```
 
-`next.config.ts` mem-proxy `/api/*` dan `/uploads/*` ke `API_BASE_URL` lewat `rewrites()`, sehingga browser selalu bicara same-origin dan cookie httpOnly bekerja tanpa CORS. **Di produksi kedua path itu diterminasi di nginx, bukan diteruskan Next** — `rewrites()` adalah jalur dev.
+`next.config.ts` mem-proxy `/api/*` dan `/uploads/*` ke `API_BASE_URL` lewat `rewrites()`, sehingga browser selalu bicara same-origin dan cookie httpOnly bekerja tanpa CORS. Di produksi pun sama: nginx hanya meneruskan domain ke Next (ubsc-api/docs/fase-10.md §4).
 
 Saat boot di mode dev, aplikasi membandingkan hash salinan kontraknya dengan `GET /api/meta/contract-hash` dan menulis `console.warn` bila berbeda. Peringatan itu artinya: jalankan `npm run sync:contracts`.
 
