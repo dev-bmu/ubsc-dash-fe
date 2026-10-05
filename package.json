@@ -6,9 +6,9 @@
     "node": ">=24 <25"
   },
   "scripts": {
-    "dev": "next dev --turbopack -p 3001",
+    "dev": "next dev --turbopack -p 3010",
     "build": "next build",
-    "start": "next start -p 3001",
+    "start": "next start -p 3010",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "sync:contracts": "node scripts/sync-contracts.mjs",
