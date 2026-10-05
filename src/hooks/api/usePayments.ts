@@ -1,6 +1,14 @@
 'use client'
 
-import { approvePayment, getFinanceReport, getPaymentsIndex, rejectPayment, updatePaymentSettings } from '@/services/Payments'
+import {
+  approvePayment,
+  getFinanceReport,
+  getPaymentsIndex,
+  rejectPayment,
+  removeQrisImage,
+  updatePaymentSettings,
+  uploadQrisImage
+} from '@/services/Payments'
 import type { PaymentQueueTab, PaymentSettingsPayload } from '@/types/contracts/contracts'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -45,6 +53,16 @@ export function useUpdatePaymentSettings() {
     mutationFn: (payload: PaymentSettingsPayload) => updatePaymentSettings(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: PAYMENTS })
   })
+}
+
+export function useUploadQris() {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: (file: File) => uploadQrisImage(file), onSuccess: () => qc.invalidateQueries({ queryKey: PAYMENTS }) })
+}
+
+export function useRemoveQris() {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: () => removeQrisImage(), onSuccess: () => qc.invalidateQueries({ queryKey: PAYMENTS }) })
 }
 
 export function useFinanceReport(month: number, year: number) {

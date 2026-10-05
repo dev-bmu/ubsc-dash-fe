@@ -1,9 +1,16 @@
 'use client'
 
-import { Banknote, Check, ExternalLink, Settings2, X } from 'lucide-react'
+import { Banknote, Check, ExternalLink, QrCode, Settings2, Trash2, Upload, X } from 'lucide-react'
 import { type FormEvent, type MouseEvent, useState } from 'react'
 import { toast } from 'sonner'
-import { useApprovePayment, usePaymentsIndex, useRejectPayment, useUpdatePaymentSettings } from '@/hooks/api/usePayments'
+import {
+  useApprovePayment,
+  usePaymentsIndex,
+  useRejectPayment,
+  useRemoveQris,
+  useUpdatePaymentSettings,
+  useUploadQris
+} from '@/hooks/api/usePayments'
 import { extractApiError, fieldErrorMap } from '@/lib/apiError'
 import { openPaymentProof } from '@/services/Payments'
 import type { AdminPaymentRowDto, PaymentQueueTab, PaymentSettingsDto } from '@/types/contracts/contracts'
@@ -20,6 +27,7 @@ const TABS: { key: PaymentQueueTab; label: string }[] = [
 
 const EMPTY_SETTINGS: PaymentSettingsDto = {
   bank: { bank: '', accountNumber: '', accountHolder: '' },
+  qris: null,
   holdMinutes: 120,
   adminFee: 500,
   uniqueCodeMax: 500
@@ -33,7 +41,7 @@ export default function PaymentsIndex() {
   const transactions = data?.transactions ?? []
   const counts = data?.counts ?? { awaiting: 0, rejected: 0 }
   const settings: PaymentSettingsDto = data
-    ? { bank: data.bank, holdMinutes: data.holdMinutes, adminFee: data.adminFee, uniqueCodeMax: data.uniqueCodeMax }
+    ? { bank: data.bank, qris: data.qris, holdMinutes: data.holdMinutes, adminFee: data.adminFee, uniqueCodeMax: data.uniqueCodeMax }
     : EMPTY_SETTINGS
 
   const [rejecting, setRejecting] = useState<PaymentRow | null>(null)
@@ -313,6 +321,7 @@ function SettingsPanel({ settings }: { settings: PaymentSettingsDto }) {
     bankName: settings.bank.bank,
     accountNumber: settings.bank.accountNumber,
     accountHolder: settings.bank.accountHolder,
+    qrisMerchantName: settings.qris?.merchantName ?? '',
     holdMinutes: settings.holdMinutes,
     adminFee: settings.adminFee,
     uniqueCodeMax: settings.uniqueCodeMax
@@ -329,6 +338,7 @@ function SettingsPanel({ settings }: { settings: PaymentSettingsDto }) {
         bankName: data.bankName,
         accountNumber: data.accountNumber,
         accountHolder: data.accountHolder,
+        qrisMerchantName: data.qrisMerchantName,
         holdMinutes: Number(data.holdMinutes),
         adminFee: Number(data.adminFee),
         uniqueCodeMax: Number(data.uniqueCodeMax)
@@ -344,10 +354,23 @@ function SettingsPanel({ settings }: { settings: PaymentSettingsDto }) {
 
   return (
     <form onSubmit={submit} className="mt-6 rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-      <p className="flex items-center gap-2 font-clash text-sm font-semibold text-slate-950">
+      <QrisPanel qris={settings.qris} />
+      <div className="mt-4 max-w-md">
+        <Field
+          label="Nama merchant QRIS"
+          value={data.qrisMerchantName}
+          onChange={(v) => setData('qrisMerchantName', v)}
+          error={errors.qrisMerchantName}
+          placeholder="UB SPORT CENTER"
+          hint="Ditampilkan di bawah gambar QRIS di halaman bayar dan invoice."
+        />
+      </div>
+
+      <p className="mt-6 flex items-center gap-2 border-t border-slate-100 pt-5 font-clash text-sm font-semibold text-slate-950">
         <Banknote className="h-4 w-4 text-[#E35336]" />
-        Rekening tujuan transfer
+        Rekening bank (cadangan)
       </p>
+      <p className="mt-1 font-bdo text-xs text-slate-500">Hanya ditampilkan ke pelanggan bila QRIS belum diunggah. Boleh dikosongkan.</p>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Field label="Nama Bank" value={data.bankName} onChange={(v) => setData('bankName', v)} error={errors.bankName} placeholder="BCA" />
@@ -402,6 +425,87 @@ function SettingsPanel({ settings }: { settings: PaymentSettingsDto }) {
         Simpan
       </button>
     </form>
+  )
+}
+
+/**
+ * Gambar QRIS statis merchant (keputusan client 2026-10-01). Pelanggan memindainya lalu mengetik
+ * nominal persis; tersimpan langsung saat dipilih, terpisah dari tombol Simpan form.
+ */
+function QrisPanel({ qris }: { qris: PaymentSettingsDto['qris'] }) {
+  const upload = useUploadQris()
+  const remove = useRemoveQris()
+  const busy = upload.isPending || remove.isPending
+
+  const onFile = async (file: File | undefined) => {
+    if (!file) return
+    try {
+      await upload.mutateAsync(file)
+      toast.success('Gambar QRIS disimpan. Halaman bayar pelanggan kini memakai QRIS.')
+    } catch (error) {
+      toast.error(extractApiError(error).message)
+    }
+  }
+
+  const onRemove = async () => {
+    if (!window.confirm('Hapus QRIS? Halaman bayar pelanggan akan kembali menampilkan rekening bank.')) return
+    try {
+      await remove.mutateAsync()
+      toast.success('QRIS dihapus.')
+    } catch (error) {
+      toast.error(extractApiError(error).message)
+    }
+  }
+
+  return (
+    <div>
+      <p className="flex items-center gap-2 font-clash text-sm font-semibold text-slate-950">
+        <QrCode className="h-4 w-4 text-[#E35336]" />
+        QRIS pembayaran
+      </p>
+      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start">
+        <div className="flex h-44 w-44 shrink-0 items-center justify-center overflow-hidden rounded-[18px] border border-slate-200 bg-white">
+          {qris ? (
+            // eslint-disable-next-line @next/next/no-img-element -- pratinjau QRIS dari /uploads, tampil apa adanya
+            <img src={qris.imageUrl} alt="QRIS" className="h-full w-full object-contain p-2" />
+          ) : (
+            <span className="px-4 text-center font-bdo text-xs text-slate-400">Belum ada QRIS — pelanggan melihat rekening bank</span>
+          )}
+        </div>
+        <div className="flex flex-col gap-2">
+          <label
+            className={`inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-[14px] border border-[#FFD5CD] bg-white px-4 font-bdo text-xs font-bold text-[#B93D2A] transition hover:bg-[#FFF1EE] ${busy ? 'pointer-events-none opacity-60' : ''}`}
+          >
+            <Upload className="h-4 w-4" />
+            {upload.isPending ? 'Mengunggah...' : qris ? 'Ganti gambar QRIS' : 'Unggah gambar QRIS'}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              onChange={(event) => {
+                void onFile(event.target.files?.[0])
+                event.target.value = ''
+              }}
+            />
+          </label>
+          {qris && (
+            <button
+              type="button"
+              onClick={onRemove}
+              disabled={busy}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-[14px] border border-rose-200 bg-rose-50 px-4 font-bdo text-xs font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-60"
+            >
+              <Trash2 className="h-4 w-4" />
+              Hapus QRIS
+            </button>
+          )}
+          <p className="max-w-xs font-bdo text-[11px] leading-relaxed text-slate-400">
+            Gambar QRIS statis dari bank/penyedia QRIS (JPG, PNG, WEBP, maks 5 MB). Pelanggan memindai lalu mengetik nominal persis (harga + biaya
+            admin + kode unik).
+          </p>
+        </div>
+      </div>
+    </div>
   )
 }
 

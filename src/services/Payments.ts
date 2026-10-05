@@ -5,6 +5,7 @@ import type {
   InvoiceDto,
   PaymentDecisionDto,
   PaymentQueueTab,
+  PaymentSettingsDto,
   PaymentSettingsPayload
 } from '@/types/contracts/contracts'
 
@@ -31,6 +32,20 @@ export const rejectPayment = async (id: string, reason: string): Promise<Payment
 
 export const updatePaymentSettings = async (payload: PaymentSettingsPayload): Promise<void> => {
   await axiosInstance.post('/admin/payments/settings', payload)
+}
+
+/** Unggah gambar QRIS merchant (field `image`) — mengganti yang lama. */
+export const uploadQrisImage = async (file: File): Promise<PaymentSettingsDto> => {
+  const body = new FormData()
+  body.append('image', file)
+  const res = await axiosInstance.post<Envelope<PaymentSettingsDto>>('/admin/payments/settings/qris', body)
+  return res.data.data
+}
+
+/** Hapus QRIS — halaman bayar pelanggan kembali menampilkan rekening. */
+export const removeQrisImage = async (): Promise<PaymentSettingsDto> => {
+  const res = await axiosInstance.delete<Envelope<PaymentSettingsDto>>('/admin/payments/settings/qris')
+  return res.data.data
 }
 
 /**
