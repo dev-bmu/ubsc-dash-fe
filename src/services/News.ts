@@ -1,5 +1,12 @@
 import axiosInstance from '@/lib/axios'
-import type { AdminNewsFormDto, AdminNewsIndexDto, InfoBannerPayload, NewsCategoryPayload, ReorderPayload } from '@/types/contracts/contracts'
+import type {
+  AdminNewsFormDto,
+  AdminNewsIndexDto,
+  InfoBannerPayload,
+  NewsCategoryPayload,
+  NewsContentImageDto,
+  ReorderPayload
+} from '@/types/contracts/contracts'
 
 // ===== Service admin News + Kategori + Info Banner + Gym Traffic (Fase 8F) =====
 // News store/update MULTIPART (thumbnail) — pemanggil merakit FormData, sama seperti Facilities (8A).
@@ -34,6 +41,14 @@ export const updateNews = async (id: string, formData: FormData): Promise<void> 
 
 export const deleteNews = async (id: string): Promise<void> => {
   await axiosInstance.delete(`/admin/news/${id}`)
+}
+
+/** Gambar di dalam isi artikel (RichEditor). Server menautkannya ke artikel saat artikel disimpan. */
+export const uploadNewsContentImage = async (file: File): Promise<NewsContentImageDto> => {
+  const formData = new FormData()
+  formData.append('image', file)
+  const res = await axiosInstance.post<Envelope<NewsContentImageDto>>('/admin/news/content-images', formData)
+  return res.data.data
 }
 
 // ---- Kategori berita ----

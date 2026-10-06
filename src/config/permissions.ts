@@ -112,6 +112,7 @@ const PATH_PERMISSIONS: ReadonlyArray<{ prefix: string; permissions: PermissionC
   { prefix: '/gym/visits', permissions: [PERMISSIONS.GYM_CHECKIN, PERMISSIONS.REPORTS_READ] },
   { prefix: '/finance', permissions: [PERMISSIONS.REPORTS_READ] },
   { prefix: '/news', permissions: [PERMISSIONS.CMS_MANAGE] },
+  { prefix: '/seo-pages', permissions: [PERMISSIONS.CMS_MANAGE] },
   { prefix: '/promo', permissions: [PERMISSIONS.CMS_MANAGE] },
   { prefix: '/sponsors', permissions: [PERMISSIONS.CMS_MANAGE] },
   { prefix: '/reels', permissions: [PERMISSIONS.CMS_MANAGE] },

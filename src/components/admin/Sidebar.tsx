@@ -31,6 +31,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ScanLine,
+  SearchCheck,
   ShieldCheck,
   UserCog,
   Users2,
@@ -77,6 +78,7 @@ type NavHref = ReturnType<
   | typeof routes.payments
   | typeof routes.finance
   | typeof routes.news
+  | typeof routes.seoPages
   | typeof routes.promo
   | typeof routes.sponsors
   | typeof routes.reels
@@ -477,6 +479,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const classesActive = matchPrefix(pathname, '/classes')
   const checkinActive = matchPrefix(pathname, '/checkin')
   const newsActive = matchPrefix(pathname, '/news')
+  const seoPagesActive = matchPrefix(pathname, '/seo-pages')
   const promoActive = matchPrefix(pathname, '/promo')
   const sponsorsActive = matchPrefix(pathname, '/sponsors')
   const reelsActive = matchPrefix(pathname, '/reels')
@@ -621,6 +624,13 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           label: 'News',
           href: routes.news(),
           active: newsActive,
+          permissions: [PERMISSIONS.CMS_MANAGE]
+        },
+        {
+          icon: SearchCheck,
+          label: 'SEO Halaman',
+          href: routes.seoPages(),
+          active: seoPagesActive,
           permissions: [PERMISSIONS.CMS_MANAGE]
         },
         {

@@ -54,6 +54,7 @@ export const routes = {
   news: () => '/news' as const,
   newsCreate: () => '/news/create' as const,
   newsEdit: (id: string) => `/news/${id}/edit` as const,
+  seoPages: () => '/seo-pages' as const,
   promo: () => '/promo' as const,
   reels: () => '/reels' as const,
   sponsors: () => '/sponsors' as const,

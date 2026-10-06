@@ -2,7 +2,26 @@
 
 import '../form.css'
 
-import { Archive, ArrowLeft, BadgeCheck, BookOpen, CheckCircle2, Clock3, Eye, FileText, Image, Newspaper, Save, Settings2, Tag } from 'lucide-react'
+import {
+  Archive,
+  ArrowLeft,
+  BadgeCheck,
+  BookOpen,
+  CheckCircle2,
+  CircleAlert,
+  CircleCheck,
+  Clock3,
+  ExternalLink,
+  Eye,
+  FileText,
+  ImageIcon,
+  Info,
+  Newspaper,
+  Save,
+  SearchCheck,
+  Settings2,
+  Tag
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import Link from 'next/link'
@@ -10,15 +29,18 @@ import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { SingleDropzone } from '@/components/admin/ImageDropzone'
 import { RichEditor } from '@/components/admin/RichEditor'
+import { SeoCharCount, SerpPreview, truncateText } from '@/components/admin/SeoPreview'
 import { createAccessChecker, PERMISSIONS } from '@/config/permissions'
 import { routes } from '@/config/routes'
+import { articleUrl, SITE_URL } from '@/config/site'
 import { useAuth } from '@/context/AuthContext'
 import { useCreateNews, useNewsCreateForm, useNewsEditForm, useUpdateNews } from '@/hooks/api/useNews'
 import { extractApiError, fieldErrorMap } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
-import type { NewsStatus } from '@/types/contracts/contracts'
+import type { NewsSection, NewsStatus } from '@/types/contracts/contracts'
+import { SEO_LIMITS, SITE_NAME } from '@/types/contracts/seo'
 
-// Menggantikan useForm<FormData> Inertia (camelCase DTO). thumbnail hanya dikirim bila user
+// Menggantikan useForm<FormData> Inertia (camelCase DTO). thumbnail/ogImage hanya dikirim bila user
 // memilih berkas baru — padanan `$request->hasFile('thumbnail')` di Laravel.
 type NewsFormState = {
   newsCategoryId: string
@@ -29,6 +51,11 @@ type NewsFormState = {
   status: NewsStatus
   publishedAt: string
   thumbnail: File | null
+  metaTitle: string
+  metaDescription: string
+  noindex: boolean
+  ogImage: File | null
+  removeOgImage: boolean
 }
 
 const STATUS_META: Record<
@@ -68,12 +95,34 @@ const STATUS_META: Record<
   }
 }
 
+// Slug publik: buang diakritik ("Pelatihan Café" -> "pelatihan-cafe"), non-alfanumerik jadi satu '-',
+// tanpa '-' di ujung, maks 191 (kolom VARCHAR(191)). Sama dengan slugify kategori di API.
 function slugify(str: string): string {
   return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 191)
+    .replace(/-+$/, '')
+}
+
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+
+// URL blob untuk pratinjau berkas yang belum diunggah; dicabut saat berkas berganti/komponen lepas.
+function useObjectUrl(file: File | null): string | null {
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!file) {
+      setUrl(null)
+      return
+    }
+    const next = URL.createObjectURL(file)
+    setUrl(next)
+    return () => URL.revokeObjectURL(next)
+  }, [file])
+  return url
 }
 
 function stripHtml(html: string): string {
@@ -90,7 +139,7 @@ function toDatetimeLocal(value?: string | null): string {
 
 function getReadingMinutes(content: string): number {
   const words = stripHtml(content).split(' ').filter(Boolean).length
-  return words > 0 ? Math.max(1, Math.ceil(words / 180)) : 0
+  return words > 0 ? Math.max(1, Math.ceil(words / 200)) : 0
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -218,7 +267,12 @@ export default function NewsForm() {
     content: '',
     status: 'draft',
     publishedAt: '',
-    thumbnail: null
+    thumbnail: null,
+    metaTitle: '',
+    metaDescription: '',
+    noindex: false,
+    ogImage: null,
+    removeOgImage: false
   })
   const setData = <K extends keyof NewsFormState>(key: K, value: NewsFormState[K]) => setDataState((prev) => ({ ...prev, [key]: value }))
 
@@ -235,7 +289,12 @@ export default function NewsForm() {
       content: article.content ?? '',
       status: article.status ?? 'draft',
       publishedAt: toDatetimeLocal(article.publishedAt),
-      thumbnail: null
+      thumbnail: null,
+      metaTitle: article.metaTitle ?? '',
+      metaDescription: article.metaDescription ?? '',
+      noindex: article.noindex,
+      ogImage: null,
+      removeOgImage: false
     })
   }, [article])
 
@@ -259,6 +318,12 @@ export default function NewsForm() {
     formData.set('publishedAt', data.publishedAt)
     // Hanya saat user memilih berkas baru — key kosong akan terbaca sebagai upload dan menimpa media lama.
     if (data.thumbnail) formData.append('thumbnail', data.thumbnail)
+    // '' = pakai judul / ringkasan (server menyimpannya sebagai null).
+    formData.set('metaTitle', data.metaTitle)
+    formData.set('metaDescription', data.metaDescription)
+    formData.set('noindex', data.noindex ? '1' : '0')
+    if (data.ogImage) formData.append('ogImage', data.ogImage)
+    else if (data.removeOgImage) formData.set('removeOgImage', '1')
 
     try {
       if (isEdit) {
@@ -289,6 +354,41 @@ export default function NewsForm() {
   const headline = data.title.trim() || 'Judul artikel belum diisi'
   const slugPreview = data.slug.trim() || 'tautan-artikel'
 
+  // ===== SEO =====
+  // Kategori di form hanya {id, name}; slug kategori di API = slugify(name), jadi section publik bisa
+  // diturunkan dari nama tanpa menambah field kontrak. Sama dengan newsSection() di API.
+  const section: NewsSection = selectedCategory && slugify(selectedCategory.name) === 'artikel' ? 'artikel' : 'berita'
+  const ogFileUrl = useObjectUrl(data.ogImage)
+  const thumbnailFileUrl = useObjectUrl(data.thumbnail)
+  // Urutan fallback sama dengan NewsSeoDto.ogImage di API: og_image -> thumbnail.
+  const shareImage = ogFileUrl ?? (data.removeOgImage ? null : article?.ogImage) ?? thumbnailFileUrl ?? article?.thumbnail ?? null
+  const seoTitle = data.metaTitle.trim() || data.title.trim()
+  // Landing memasang template '%s | UB Sport Center' — panjang yang dinilai Google adalah judul jadi.
+  const renderedTitleLength = seoTitle ? seoTitle.length + SITE_NAME.length + 3 : 0
+  const seoDescriptionSource = data.metaDescription.trim() || data.excerpt.trim()
+  const seoDescription = seoDescriptionSource || truncateText(contentText, SEO_LIMITS.descriptionIdeal)
+  const wordCount = contentText ? contentText.split(' ').length : 0
+  const contentImages = data.content.match(/<img\b[^>]*>/gi) ?? []
+  const seoChecks = [
+    {
+      label: `Judul SEO + " | ${SITE_NAME}" maks. ${SEO_LIMITS.titleIdeal} karakter`,
+      ok: seoTitle.length > 0 && renderedTitleLength <= SEO_LIMITS.titleIdeal
+    },
+    {
+      label: `Meta deskripsi ${SEO_LIMITS.descriptionMin}–${SEO_LIMITS.descriptionIdeal} karakter`,
+      ok: seoDescriptionSource.length >= SEO_LIMITS.descriptionMin && seoDescriptionSource.length <= SEO_LIMITS.descriptionIdeal
+    },
+    { label: 'Slug pendek (maks. 75), huruf kecil/angka/strip', ok: data.slug.length <= 75 && SLUG_PATTERN.test(data.slug) },
+    { label: 'Ringkasan terisi', ok: excerptLength > 0 },
+    { label: 'Ada thumbnail atau gambar share', ok: shareImage !== null },
+    { label: 'Isi punya minimal satu Judul 2', ok: /<h2[\s>]/i.test(data.content) },
+    { label: 'Semua gambar di isi punya teks alt', ok: contentImages.every((tag) => /\salt="[^"]*\S[^"]*"/i.test(tag)) },
+    { label: 'Tidak disembunyikan dari mesin pencari', ok: !data.noindex },
+    { label: `Isi minimal 300 kata (sekarang ${wordCount})`, ok: wordCount >= 300, info: true }
+  ]
+  const scoredChecks = seoChecks.filter((check) => !check.info)
+  const seoPassed = scoredChecks.filter((check) => check.ok).length
+
   return (
     <>
       <div className="px-4 pt-2 xl:px-8">
@@ -297,6 +397,17 @@ export default function NewsForm() {
           <h1 className="font-clash text-3xl font-bold tracking-tight uppercase xl:text-4xl">
             <span className="news-form-title-shine">{isEdit ? (article?.title ?? '') : 'Tulis Artikel'}</span>
           </h1>
+          {article?.status === 'published' && (
+            <a
+              href={articleUrl(article.section, article.slug)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-flex w-fit items-center gap-1.5 font-bdo text-[12px] font-bold text-[#B93D2A] hover:underline"
+            >
+              <ExternalLink size={13} />
+              Lihat di situs
+            </a>
+          )}
         </div>
       </div>
 
@@ -349,7 +460,9 @@ export default function NewsForm() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-2 font-clash text-sm leading-tight font-semibold text-slate-950">{headline}</p>
-                      <p className="mt-1 truncate font-bdo text-[11px] font-semibold text-slate-400">/{slugPreview}</p>
+                      <p className="mt-1 truncate font-bdo text-[11px] font-semibold text-slate-400">
+                        /{section}/{slugPreview}
+                      </p>
                       <div className="mt-3 flex flex-wrap gap-1.5">
                         <span className="rounded-full border border-[#F8B5A8]/70 bg-white px-2.5 py-1 font-bdo text-[10px] font-bold text-[#B93D2A]">
                           {selectedCategory?.name ?? 'Tanpa kategori'}
@@ -389,6 +502,7 @@ export default function NewsForm() {
                       name="title"
                       type="text"
                       value={data.title}
+                      maxLength={191}
                       onChange={(event) => setData('title', event.target.value)}
                       placeholder="Dalam Pengembangan: Fitur artikel dan berita segera hadir"
                       className="news-input-field title"
@@ -410,10 +524,14 @@ export default function NewsForm() {
                       name="slug"
                       type="text"
                       value={data.slug}
+                      maxLength={191}
                       onChange={(event) => setData('slug', event.target.value)}
                       placeholder="tautan-artikel"
                       className="news-input-field mono"
                     />
+                    <p className="mt-1.5 font-bdo text-[10px] font-medium break-all text-slate-400">
+                      URL publik: <span className="font-semibold text-slate-600">{articleUrl(section, slugPreview)}</span>
+                    </p>
                     <FieldError message={errors.slug} />
                   </div>
 
@@ -437,6 +555,7 @@ export default function NewsForm() {
                       id="news_excerpt"
                       name="excerpt"
                       value={data.excerpt}
+                      maxLength={500}
                       onChange={(event) => setData('excerpt', event.target.value)}
                       rows={4}
                       placeholder="Tulis ringkasan yang padat dan mudah dipahami..."
@@ -468,6 +587,153 @@ export default function NewsForm() {
                       <p className="mt-1 font-clash text-sm font-semibold text-slate-800">{item.value}</p>
                     </div>
                   ))}
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                icon={<SearchCheck size={15} />}
+                title="SEO & Media Sosial"
+                subtitle="Tampilan di Google dan saat dibagikan"
+                animDelay="delay-200"
+              >
+                <div className="flex flex-col gap-5">
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between gap-3">
+                      <label htmlFor="news_meta_title" className="font-bdo text-[11px] font-bold tracking-wider text-slate-500 uppercase">
+                        Judul SEO
+                      </label>
+                      <SeoCharCount field="title" length={renderedTitleLength} />
+                    </div>
+                    <input
+                      id="news_meta_title"
+                      name="metaTitle"
+                      type="text"
+                      value={data.metaTitle}
+                      maxLength={SEO_LIMITS.titleMax}
+                      onChange={(event) => setData('metaTitle', event.target.value)}
+                      placeholder={data.title.trim() || 'Kosongkan untuk memakai judul artikel'}
+                      className="news-input-field"
+                    />
+                    <p className="mt-1.5 font-bdo text-[10px] font-medium text-slate-400">
+                      Kosongkan untuk memakai judul artikel. Ideal maks. {SEO_LIMITS.titleIdeal} karakter termasuk akhiran &quot; | {SITE_NAME}&quot;
+                      agar tidak terpotong di Google.
+                    </p>
+                    <FieldError message={errors.metaTitle} />
+                  </div>
+
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between gap-3">
+                      <label htmlFor="news_meta_description" className="font-bdo text-[11px] font-bold tracking-wider text-slate-500 uppercase">
+                        Meta Deskripsi
+                      </label>
+                      <SeoCharCount field="description" length={seoDescriptionSource.length} />
+                    </div>
+                    <textarea
+                      id="news_meta_description"
+                      name="metaDescription"
+                      value={data.metaDescription}
+                      maxLength={SEO_LIMITS.descriptionMax}
+                      onChange={(event) => setData('metaDescription', event.target.value)}
+                      rows={3}
+                      placeholder={data.excerpt.trim() || 'Kosongkan untuk memakai ringkasan atau awal isi artikel'}
+                      className="news-input-field resize-none leading-relaxed"
+                    />
+                    <p className="mt-1.5 font-bdo text-[10px] font-medium text-slate-400">
+                      Ideal 120–{SEO_LIMITS.descriptionIdeal} karakter. Kosongkan untuk memakai ringkasan.
+                    </p>
+                    <FieldError message={errors.metaDescription} />
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <SerpPreview
+                      title={`${seoTitle || 'Judul artikel'} | ${SITE_NAME}`}
+                      path={`/${section}/${slugPreview}`}
+                      description={seoDescription || 'Deskripsi artikel akan tampil di sini.'}
+                    />
+
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                      <p className="px-4 pt-3 font-bdo text-[9px] font-bold tracking-wider text-slate-400 uppercase">Pratinjau share</p>
+                      <div className="mt-2 aspect-[1200/630] bg-slate-100">
+                        {shareImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- pratinjau dinamis (blob URL / URL media)
+                          <img src={shareImage} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center font-bdo text-[11px] text-slate-400">Belum ada gambar</div>
+                        )}
+                      </div>
+                      <div className="border-t border-slate-200 bg-slate-50 px-4 py-3">
+                        <p className="truncate font-bdo text-[10px] font-semibold text-slate-400 uppercase">{SITE_URL.replace(/^https?:\/\//, '')}</p>
+                        <p className="mt-0.5 line-clamp-2 font-bdo text-sm font-bold text-slate-900">{seoTitle || 'Judul artikel'}</p>
+                        <p className="mt-0.5 line-clamp-2 font-bdo text-xs text-slate-500">{seoDescription}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="news-section-divider" />
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div>
+                      <SingleDropzone
+                        label="Gambar Share (OG)"
+                        currentUrl={article?.ogImage ?? null}
+                        onFileSelect={(file) =>
+                          // Berkas baru membatalkan "hapus": bila pratinjaunya dibuang lagi, dropzone kembali menampilkan gambar lama.
+                          setDataState((prev) => ({ ...prev, ogImage: file, removeOgImage: file ? false : prev.removeOgImage }))
+                        }
+                        onRemoveExisting={() => setData('removeOgImage', true)}
+                      />
+                      <p className="mt-1.5 font-bdo text-[10px] font-medium text-slate-400">Ideal 1200×630 px. Kosong = memakai thumbnail artikel.</p>
+                      <FieldError message={errors.ogImage} />
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                      <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <span>
+                          <span className="block font-clash text-sm font-semibold text-slate-900">Sembunyikan dari mesin pencari</span>
+                          <span className="block font-bdo text-[11px] text-slate-400">noindex — artikel tetap bisa dibuka lewat tautan</span>
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={data.noindex}
+                          onChange={(event) => setData('noindex', event.target.checked)}
+                          className="h-5 w-5 rounded border-slate-300 text-[#E35336] focus:ring-[#E35336]"
+                        />
+                      </label>
+                      <FieldError message={errors.noindex} />
+
+                      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-bdo text-[11px] font-bold tracking-wider text-slate-500 uppercase">Cek SEO</p>
+                          <span
+                            className={cn(
+                              'rounded-full border px-2.5 py-1 font-bdo text-[10px] font-bold',
+                              seoPassed === scoredChecks.length
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                : seoPassed >= scoredChecks.length - 2
+                                  ? 'border-amber-200 bg-amber-50 text-amber-700'
+                                  : 'border-rose-200 bg-rose-50 text-rose-600'
+                            )}
+                          >
+                            Skor {seoPassed}/{scoredChecks.length}
+                          </span>
+                        </div>
+                        <ul className="mt-2 flex flex-col gap-1.5">
+                          {seoChecks.map((check) => {
+                            const Icon = check.ok ? CircleCheck : check.info ? Info : CircleAlert
+                            return (
+                              <li key={check.label} className="flex items-start gap-2 font-bdo text-[11px] font-medium text-slate-600">
+                                <Icon
+                                  size={13}
+                                  className={cn('mt-px shrink-0', check.ok ? 'text-emerald-500' : check.info ? 'text-sky-500' : 'text-amber-500')}
+                                />
+                                {check.label}
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </SectionCard>
             </div>
@@ -543,7 +809,7 @@ export default function NewsForm() {
                 </div>
               </SectionCard>
 
-              <SectionCard icon={<Image size={15} />} title="Thumbnail" subtitle="Gambar utama kartu artikel" animDelay="delay-250">
+              <SectionCard icon={<ImageIcon size={15} />} title="Thumbnail" subtitle="Gambar utama kartu artikel" animDelay="delay-250">
                 <div className="rounded-2xl border border-slate-200 bg-white p-3">
                   <SingleDropzone
                     label="Gambar Artikel"

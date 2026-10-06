@@ -32,11 +32,11 @@ export function middleware(request: NextRequest) {
   const isLoggedIn = Boolean(userRole)
 
   // ===== Route tamu (/login) =====
-  if (guestRoutes.includes(path)) {
-    // Sudah login tapi buka /login → langsung ke dashboard.
-    if (isLoggedIn) return NextResponse.redirect(new URL(DEFAULT_HOME, request.nextUrl))
-    return NextResponse.next()
-  }
+  // SELALU dirender, juga saat cookie role ada. ubsc_s_role hanya petunjuk: cookie basi (mis. sisa
+  // Domain=.ubsportcenter.co.id yang tak bisa dihapus host-only) atau role tanpa refresh token
+  // membuat /login -> '/' lalu AuthGuard (refresh 401) -> /login berputar tanpa henti dan form
+  // login tak pernah muncul. Staff yang sesinya masih sah cukup login ulang.
+  if (guestRoutes.includes(path)) return NextResponse.next()
 
   // ===== Semua route lain butuh sesi =====
   // Panel ini tidak punya halaman publik selain /login: '/', dashboard, dan seluruh area admin

@@ -28,6 +28,7 @@ import {
   Package,
   RefreshCw,
   Search,
+  SearchCheck,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -41,7 +42,6 @@ import { KeyboardEvent, MouseEvent, useEffect, useMemo, useRef, useState } from 
 import { cn } from '@/lib/utils'
 import { matchPrefix, routes } from '@/config/routes'
 import { useAuth } from '@/context/AuthContext'
-import axiosInstance from '@/lib/axios'
 import { clearReadNotifications, getNotifications, markNotificationsRead } from '@/services/Settings'
 import type { AdminNotificationsDto } from '@/types/contracts/contracts'
 import type { AuthUser } from '@/types/api/auth'
@@ -202,6 +202,16 @@ const pageRegistry: SearchItem[] = [
     icon: FileText
   },
   {
+    id: 'seo-pages',
+    title: 'SEO Halaman',
+    description: 'Atur judul, meta deskripsi, dan gambar share halaman publik.',
+    href: routes.seoPages(),
+    group: 'Content',
+    kind: 'setting',
+    keywords: ['seo', 'meta', 'google', 'og image', 'halaman'],
+    icon: SearchCheck
+  },
+  {
     id: 'promo',
     title: 'Carousel Promo',
     description: 'Kelola slide promo, urutan tampil, dan status publik.',
@@ -285,6 +295,7 @@ const pageTitleMap: Array<{ match: (path: string) => boolean; title: string; sec
   { match: (path) => matchPrefix(path, routes.memberships()), title: 'Memberships', section: 'Customers' },
   { match: (path) => matchPrefix(path, routes.finance()), title: 'Finance Overview', section: 'Finance' },
   { match: (path) => matchPrefix(path, routes.news()), title: 'News', section: 'Content' },
+  { match: (path) => matchPrefix(path, routes.seoPages()), title: 'SEO Halaman', section: 'Content' },
   { match: (path) => matchPrefix(path, routes.promo()), title: 'Carousel Promo', section: 'Content' },
   { match: (path) => matchPrefix(path, routes.sponsors()), title: 'Sponsors', section: 'Content' },
   { match: (path) => matchPrefix(path, routes.reels()), title: 'Video Reels', section: 'Content' },
@@ -596,7 +607,6 @@ export function Topbar({ onMobileMenuClick }: TopbarProps) {
       window.removeEventListener('pointerdown', onPointerDown)
       window.removeEventListener('keydown', onKeyDown)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const openSearch = () => {

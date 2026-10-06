@@ -32,6 +32,7 @@ import {
 import { type ButtonHTMLAttributes, type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { routes } from '@/config/routes'
+import { articleUrl } from '@/config/site'
 import {
   useCreateInfoBanner,
   useCreateNewsCategory,
@@ -1015,6 +1016,17 @@ function BannerPanel({
   )
 }
 
+// Indikator ringan: noindex menang; selain itu cukup cek meta deskripsi manual (judul selalu ada).
+function SeoBadge({ article }: { article: AdminNewsDto }) {
+  const [label, tone] = article.noindex
+    ? ['noindex', 'border-slate-200 bg-slate-100 text-slate-500']
+    : article.metaDescription
+      ? ['SEO ok', 'border-emerald-200 bg-emerald-50 text-emerald-700']
+      : ['SEO perlu dicek', 'border-amber-200 bg-amber-50 text-amber-700']
+
+  return <span className={cn('rounded-full border px-2 py-0.5 font-bdo text-[9px] font-bold tracking-wide uppercase', tone)}>{label}</span>
+}
+
 function ArticleCard({ article }: { article: AdminNewsDto }) {
   const categoryName = article.category?.name ?? 'Tanpa kategori'
 
@@ -1070,8 +1082,24 @@ function ArticleCard({ article }: { article: AdminNewsDto }) {
 
         <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-[#FFE0D8] pt-3">
           <div className="min-w-0">
-            <p className="truncate font-bdo text-[11px] font-bold tracking-wide text-[#B93D2A] uppercase">/{article.slug}</p>
-            <p className="mt-0.5 font-bdo text-[10px] font-semibold tracking-wide text-slate-400 uppercase">Artikel #{article.id}</p>
+            <p className="truncate font-bdo text-[11px] font-bold tracking-wide text-[#B93D2A] uppercase">
+              /{article.section}/{article.slug}
+            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <SeoBadge article={article} />
+              {article.status === 'published' && (
+                <a
+                  href={articleUrl(article.section, article.slug)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-0.5 font-bdo text-[10px] font-bold tracking-wide text-slate-500 uppercase hover:text-[#B93D2A]"
+                  aria-label={`Lihat ${article.title} di situs`}
+                >
+                  Lihat
+                  <ArrowUpRight size={11} />
+                </a>
+              )}
+            </div>
           </div>
           <NewsRowActions article={article} />
         </div>
