@@ -105,7 +105,9 @@ export const openInvoice = async (transactionId: string): Promise<void> => {
  * Unduh berkas impor Accurate untuk rentang [from, to]. Error dari endpoint berkas datang sebagai Blob;
  * isinya diurai kembali ke JSON supaya extractApiError() membaca pesannya seperti error lain.
  */
-export const downloadAccurateExport = async (kind: 'pelanggan' | 'faktur', from: string, to: string): Promise<void> => {
+export type AccurateExportKind = 'pelanggan' | 'faktur' | 'penerimaan'
+
+export const downloadAccurateExport = async (kind: AccurateExportKind, from: string, to: string): Promise<void> => {
   try {
     const res = await axiosInstance.get<Blob>(`/admin/finance/accurate/${kind}`, { params: { from, to }, responseType: 'blob' })
     const name = /filename="([^"]+)"/.exec(String(res.headers['content-disposition'] ?? ''))?.[1] ?? `accurate-${kind}.xlsx`

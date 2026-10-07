@@ -30,7 +30,8 @@ const EMPTY_SETTINGS: PaymentSettingsDto = {
   qris: null,
   holdMinutes: 120,
   adminFee: 500,
-  uniqueCodeMax: 500
+  uniqueCodeMax: 500,
+  accurateCashAccountNo: ''
 }
 
 export default function PaymentsIndex() {
@@ -41,7 +42,14 @@ export default function PaymentsIndex() {
   const transactions = data?.transactions ?? []
   const counts = data?.counts ?? { awaiting: 0, rejected: 0 }
   const settings: PaymentSettingsDto = data
-    ? { bank: data.bank, qris: data.qris, holdMinutes: data.holdMinutes, adminFee: data.adminFee, uniqueCodeMax: data.uniqueCodeMax }
+    ? {
+        bank: data.bank,
+        qris: data.qris,
+        holdMinutes: data.holdMinutes,
+        adminFee: data.adminFee,
+        uniqueCodeMax: data.uniqueCodeMax,
+        accurateCashAccountNo: data.accurateCashAccountNo
+      }
     : EMPTY_SETTINGS
 
   const [rejecting, setRejecting] = useState<PaymentRow | null>(null)
@@ -324,7 +332,8 @@ function SettingsPanel({ settings }: { settings: PaymentSettingsDto }) {
     qrisMerchantName: settings.qris?.merchantName ?? '',
     holdMinutes: settings.holdMinutes,
     adminFee: settings.adminFee,
-    uniqueCodeMax: settings.uniqueCodeMax
+    uniqueCodeMax: settings.uniqueCodeMax,
+    accurateCashAccountNo: settings.accurateCashAccountNo
   })
   const setData = <K extends keyof typeof data>(key: K, value: (typeof data)[K]) => setFormData((prev) => ({ ...prev, [key]: value }))
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -341,7 +350,8 @@ function SettingsPanel({ settings }: { settings: PaymentSettingsDto }) {
         qrisMerchantName: data.qrisMerchantName,
         holdMinutes: Number(data.holdMinutes),
         adminFee: Number(data.adminFee),
-        uniqueCodeMax: Number(data.uniqueCodeMax)
+        uniqueCodeMax: Number(data.uniqueCodeMax),
+        accurateCashAccountNo: data.accurateCashAccountNo
       })
       setErrors({})
       toast.success('Pengaturan pembayaran disimpan.')
@@ -414,6 +424,14 @@ function SettingsPanel({ settings }: { settings: PaymentSettingsDto }) {
           placeholder="500"
           type="number"
           hint="Kode 1 sampai angka ini. Juga batas transfer terbuka bersamaan untuk harga yang sama."
+        />
+        <Field
+          label="Kode akun Kas/Bank Accurate"
+          value={data.accurateCashAccountNo}
+          onChange={(v) => setData('accurateCashAccountNo', v)}
+          error={errors.accurateCashAccountNo}
+          placeholder="1101-001"
+          hint="Akun penerimaan di Accurate untuk export Penerimaan Penjualan. Wajib diisi sebelum export itu dipakai."
         />
       </div>
 

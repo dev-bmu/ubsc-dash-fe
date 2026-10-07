@@ -30,7 +30,7 @@ import { useFinanceReport } from '@/hooks/api/usePayments'
 import { extractApiError } from '@/lib/apiError'
 import { todayStr } from '@/lib/calendar'
 import { cn } from '@/lib/utils'
-import { downloadAccurateExport } from '@/services/Payments'
+import { AccurateExportKind, downloadAccurateExport } from '@/services/Payments'
 import type { AdminFinanceDto, PaymentStatus } from '@/types/contracts/contracts'
 
 // Fase 8D — port 1:1 Pages/Admin/Finance/Index.tsx (Laravel Inertia).
@@ -306,16 +306,17 @@ function FinanceToolbar({
 }
 
 /**
- * Export Excel untuk impor Accurate (catatan client 2026-09-28): pelanggan dulu, lalu faktur penjualan.
- * Rentangnya tanggal transaksi DIBUAT (lunas maupun belum) — terpisah dari periode bulan laporan.
+ * Export Excel untuk impor Accurate (catatan client 2026-09-28): pelanggan, faktur, lalu penerimaan penjualan.
+ * Faktur memakai tanggal transaksi DIBUAT (lunas maupun belum), penerimaan memakai tanggal LUNAS —
+ * terpisah dari periode bulan laporan.
  * Tinggal di kepala card tabel ledger (permintaan client), di bawah filter.
  */
 function AccurateExportPanel() {
   const [from, setFrom] = useState(todayStr())
   const [to, setTo] = useState(todayStr())
-  const [busy, setBusy] = useState<'pelanggan' | 'faktur' | null>(null)
+  const [busy, setBusy] = useState<AccurateExportKind | null>(null)
 
-  const download = async (kind: 'pelanggan' | 'faktur') => {
+  const download = async (kind: AccurateExportKind) => {
     setBusy(kind)
     try {
       await downloadAccurateExport(kind, from, to < from ? from : to)
@@ -340,7 +341,8 @@ function AccurateExportPanel() {
             Export Accurate
           </p>
           <p className="mt-0.5 font-bdo text-[11px] font-medium text-slate-500">
-            Impor berkas pelanggan dulu, baru faktur penjualan. Berisi transaksi yang dibuat pada tanggal ini, lunas maupun belum.
+            Impor berurutan: 1) Pelanggan, 2) Faktur (transaksi dibuat pada tanggal ini, lunas maupun belum), 3) Penerimaan (transaksi lunas pada
+            tanggal ini). Penerimaan butuh kode akun Kas/Bank di Pembayaran &gt; Pengaturan Pembayaran.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -369,6 +371,10 @@ function AccurateExportPanel() {
           <button type="button" disabled={busy !== null} onClick={() => download('faktur')} className={button}>
             <Download size={15} />
             {busy === 'faktur' ? 'Menyiapkan...' : '2. Faktur Penjualan'}
+          </button>
+          <button type="button" disabled={busy !== null} onClick={() => download('penerimaan')} className={button}>
+            <Download size={15} />
+            {busy === 'penerimaan' ? 'Menyiapkan...' : '3. Penerimaan Penjualan'}
           </button>
         </div>
       </div>
