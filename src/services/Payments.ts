@@ -2,6 +2,7 @@ import axiosInstance from '@/lib/axios'
 import type {
   AdminFinanceDto,
   AdminPaymentIndexDto,
+  ApiMeta,
   InvoiceDto,
   PaymentDecisionDto,
   PaymentQueueTab,
@@ -15,9 +16,20 @@ import type {
 type Envelope<T> = { success: true; data: T }
 
 // ---- Verifikasi pembayaran ----
-export const getPaymentsIndex = async (tab: PaymentQueueTab): Promise<AdminPaymentIndexDto> => {
-  const res = await axiosInstance.get<Envelope<AdminPaymentIndexDto>>('/admin/payments', { params: { tab } })
-  return res.data.data
+export interface PaymentsQuery {
+  tab: PaymentQueueTab
+  /** '' = tanpa pencarian. */
+  q: string
+  page: number
+  perPage: number
+}
+
+/** Antrean ter-paginasi: meta paginasi datang di envelope, bukan di dalam data. */
+export const getPaymentsIndex = async ({ q, ...params }: PaymentsQuery): Promise<{ data: AdminPaymentIndexDto; meta: ApiMeta }> => {
+  const res = await axiosInstance.get<Envelope<AdminPaymentIndexDto> & { meta: ApiMeta }>('/admin/payments', {
+    params: { ...params, q: q || undefined }
+  })
+  return { data: res.data.data, meta: res.data.meta }
 }
 
 export const approvePayment = async (id: string): Promise<PaymentDecisionDto> => {

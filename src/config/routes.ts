@@ -42,6 +42,8 @@ export const routes = {
   finance: () => '/finance' as const,
   payments: () => '/payments' as const,
   identity: () => '/identity' as const,
+  /** Membuka tab Foto Member (halaman membaca hash ini saat dimuat). */
+  identityMemberPhotos: () => '/identity#foto-member' as const,
 
   // ===== Membership =====
   memberships: () => '/memberships' as const,

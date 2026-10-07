@@ -113,12 +113,12 @@ const pageRegistry: SearchItem[] = [
   },
   {
     id: 'identity',
-    title: 'Identity Queue',
-    description: 'Verifikasi identitas member dan dokumen pengguna.',
+    title: 'Verifikasi ID & Foto',
+    description: 'Verifikasi dokumen Warga UB dan foto wajah member gym.',
     href: routes.identity(),
     group: 'Operations',
     kind: 'page',
-    keywords: ['identity', 'verify', 'approval', 'dokumen', 'user'],
+    keywords: ['identity', 'verify', 'approval', 'dokumen', 'user', 'foto', 'photo', 'member', 'wajah', 'verifikasi'],
     icon: BadgeCheck
   },
   {
@@ -287,7 +287,7 @@ const pageRegistry: SearchItem[] = [
 // Urutan dipertahankan (first-match), termasuk Facility Pricing sebelum Facilities.
 const pageTitleMap: Array<{ match: (path: string) => boolean; title: string; section: string }> = [
   { match: (path) => path === routes.dashboard(), title: 'Dashboard', section: 'Command Center' },
-  { match: (path) => matchPrefix(path, routes.identity()), title: 'Identity Queue', section: 'Operations' },
+  { match: (path) => matchPrefix(path, routes.identity()), title: 'Verifikasi ID & Foto', section: 'Operations' },
   { match: (path) => matchPrefix(path, routes.facilities()) && path.endsWith('/pricing'), title: 'Facility Pricing', section: 'Operations' },
   { match: (path) => matchPrefix(path, routes.facilities()), title: 'Facilities', section: 'Operations' },
   { match: (path) => matchPrefix(path, routes.bookings()), title: 'Bookings', section: 'Operations' },

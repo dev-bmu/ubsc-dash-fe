@@ -10,8 +10,9 @@ import { useEffect, useState } from 'react'
 
 const IDENTITY = ['admin', 'identity'] as const
 
-export function useIdentityIndex() {
-  return useQuery({ queryKey: IDENTITY, queryFn: getIdentityIndex })
+/** `enabled` false untuk staf tanpa identity.verify: badge Sidebar tidak boleh memicu 403. */
+export function useIdentityIndex(enabled = true) {
+  return useQuery({ queryKey: IDENTITY, queryFn: getIdentityIndex, enabled })
 }
 
 export function useVerifyIdentity() {
@@ -27,8 +28,8 @@ export function useVerifyIdentity() {
 
 const MEMBER_PHOTOS = [...IDENTITY, 'member-photos'] as const
 
-export function useMemberPhotoIndex() {
-  return useQuery({ queryKey: MEMBER_PHOTOS, queryFn: getMemberPhotoIndex })
+export function useMemberPhotoIndex(enabled = true) {
+  return useQuery({ queryKey: MEMBER_PHOTOS, queryFn: getMemberPhotoIndex, enabled })
 }
 
 /** onSettled, bukan onSuccess: 409 (foto sudah diganti pelanggan) juga harus memuat ulang antrean. */

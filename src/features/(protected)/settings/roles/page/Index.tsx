@@ -121,7 +121,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
     label: 'Verifikasi UBSC',
     summary: 'Validasi dokumen warga kampus sebelum akses khusus.',
     icon: BadgeCheck,
-    items: [{ key: PERMISSIONS.IDENTITY_VERIFY, label: 'Validasi Identitas Warga UB (Identity Queue)' }]
+    items: [{ key: PERMISSIONS.IDENTITY_VERIFY, label: 'Validasi Identitas Warga UB & Foto Member (Verifikasi ID & Foto)' }]
   },
   // Grup ini TIDAK ada di Laravel: kedua permission-nya memang baru (lihat blok "Sistem" di
   // shared/permissions.ts, yang menyatakan urutan katalog = urutan tampil matriks ini).

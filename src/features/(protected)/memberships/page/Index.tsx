@@ -24,8 +24,12 @@ import {
 } from 'lucide-react'
 import { type Dispatch, type FormEvent, type ReactNode, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import Link from 'next/link'
 import { DataTable } from '@/components/admin/DataTable'
 import { SlideOver } from '@/components/admin/SlideOver'
+import { canAccessPathByRole } from '@/config/permissions'
+import { routes } from '@/config/routes'
+import { useAuth } from '@/context/AuthContext'
 import {
   useCancelMembership,
   useCaptureMemberPhoto,
@@ -1624,6 +1628,8 @@ function QuickAccountForm({
 function MemberPhotoPanel({ membership }: { membership: AdminMembershipDto }) {
   const [photo, setPhoto] = useState({ url: membership.memberPhotoUrl, status: membership.memberPhotoStatus })
   const capture = useCaptureMemberPhoto()
+  const { user } = useAuth()
+  const canReview = canAccessPathByRole(routes.identity(), user?.role, user?.permissions)
   const statusLabel = { pending: 'Menunggu tinjauan', approved: 'Disetujui', rejected: 'Ditolak' } as const
 
   const upload = async (file: File | undefined) => {
@@ -1653,6 +1659,15 @@ function MemberPhotoPanel({ membership }: { membership: AdminMembershipDto }) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-bdo text-xs font-semibold text-slate-600">{photo.status ? statusLabel[photo.status] : 'Belum ada foto'}</p>
+          {photo.status === 'pending' && canReview && (
+            <Link
+              href={routes.identityMemberPhotos()}
+              className="mt-1 inline-flex items-center gap-1 font-bdo text-xs font-semibold text-[#B93D2A] hover:underline"
+            >
+              Tinjau di Verifikasi ID & Foto
+              <ArrowRight size={12} />
+            </Link>
+          )}
           <label className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 font-bdo text-xs font-semibold text-slate-600 transition hover:border-[#F8B5A8] hover:text-[#B93D2A]">
             <Camera size={14} />
             {capture.isPending ? 'Menyimpan...' : photo.url ? 'Ambil ulang foto' : 'Ambil foto'}

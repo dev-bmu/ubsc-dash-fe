@@ -1,8 +1,9 @@
 'use client'
 
-import { Banknote, Check, ExternalLink, QrCode, Settings2, Trash2, Upload, X } from 'lucide-react'
-import { type FormEvent, type MouseEvent, useState } from 'react'
+import { Banknote, Check, ExternalLink, Loader2, QrCode, Search, Settings2, Trash2, Upload, X } from 'lucide-react'
+import { type FormEvent, type MouseEvent, useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { ServerPagination } from '@/components/admin/Pagination'
 import {
   useApprovePayment,
   usePaymentsIndex,
@@ -35,9 +36,33 @@ const EMPTY_SETTINGS: PaymentSettingsDto = {
 }
 
 export default function PaymentsIndex() {
-  // Pengganti router.get(route('admin.payments.index'), { tab }) Inertia: tab jadi state lokal.
+  // Pengganti router.get(route('admin.payments.index'), { tab }) Inertia: tab, pencarian, dan halaman jadi
+  // state lokal (halaman admin lain juga tidak menyimpan filter di URL). Ganti tab/kata kunci = kembali ke halaman 1.
   const [tab, setTab] = useState<PaymentQueueTab>('awaiting')
-  const { data, isLoading } = usePaymentsIndex(tab)
+  const [searchInput, setSearchInput] = useState('')
+  const [q, setQ] = useState('')
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(20)
+  const { data: result, isLoading, isFetching, isPlaceholderData, isError, refetch } = usePaymentsIndex({ tab, q, page, perPage })
+  const data = result?.data
+  const meta = result?.meta
+
+  const applySearch = (value: string) => {
+    setQ(value.trim())
+    setPage(1)
+  }
+
+  // Debounce: tidak satu request per ketikan. Enter menerapkan langsung lewat onSubmit.
+  useEffect(() => {
+    if (searchInput.trim() === q) return
+    const timer = setTimeout(() => applySearch(searchInput), 350)
+    return () => clearTimeout(timer)
+  }, [searchInput, q])
+
+  // Halaman terakhir kosong setelah setujui/tolak (atau data menyusut): mundur ke halaman terakhir yang masih ada.
+  useEffect(() => {
+    if (meta && !isPlaceholderData && page > meta.lastPage) setPage(meta.lastPage)
+  }, [meta, isPlaceholderData, page])
 
   const transactions = data?.transactions ?? []
   const counts = data?.counts ?? { awaiting: 0, rejected: 0 }
@@ -86,7 +111,10 @@ export default function PaymentsIndex() {
             <button
               key={t.key}
               type="button"
-              onClick={() => setTab(t.key)}
+              onClick={() => {
+                setTab(t.key)
+                setPage(1)
+              }}
               className={`inline-flex h-10 items-center rounded-2xl px-4 font-clash text-sm font-semibold transition ${
                 tab === t.key
                   ? 'bg-gray-900 text-white shadow-[inset_0_1px_0_rgb(255,255,255,0.08)]'
@@ -108,18 +136,82 @@ export default function PaymentsIndex() {
         })}
       </div>
 
-      {transactions.length === 0 ? (
-        !isLoading && (
-          <div className="mt-6 rounded-[24px] border border-dashed border-slate-200 bg-white py-20 text-center font-bdo text-sm text-slate-400">
-            Tidak ada transaksi di tab ini.
+      <form
+        role="search"
+        onSubmit={(e) => {
+          e.preventDefault()
+          applySearch(searchInput)
+        }}
+        className="relative mt-4 w-full max-w-xl"
+      >
+        {/* Data lama tetap tampil selama memuat (keepPreviousData); ikon kaca pembesar berputar sebagai penanda. */}
+        {isFetching ? (
+          <Loader2 className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
+        ) : (
+          <Search className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        )}
+        <input
+          type="text"
+          inputMode="search"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          maxLength={100}
+          placeholder="Cari invoice, nama, email, no. HP, nominal…"
+          aria-label="Cari transaksi"
+          className="h-11 w-full rounded-2xl border border-slate-200 bg-white pr-11 pl-11 font-bdo text-sm text-slate-800 outline-hidden transition focus:border-[#F8B5A8] focus:ring-4 focus:ring-[#E35336]/10"
+        />
+        {searchInput && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchInput('')
+              applySearch('')
+            }}
+            aria-label="Hapus pencarian"
+            className="absolute top-1/2 right-2.5 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </form>
+
+      {transactions.length === 0 && isError ? (
+        <div className="mt-6 rounded-[24px] border border-dashed border-rose-200 bg-white px-4 py-20 text-center font-bdo text-sm text-rose-500">
+          Gagal memuat transaksi.{' '}
+          <button type="button" onClick={() => void refetch()} className="font-semibold underline underline-offset-2 hover:text-rose-700">
+            Coba lagi
+          </button>
+        </div>
+      ) : transactions.length === 0 ? (
+        // Empty state hanya untuk hasil kunci saat ini: placeholder (data kunci sebelumnya) belum tentu kosong.
+        // Halaman yang baru saja kosong (page > lastPage) segera dimundurkan efek di atas — jangan kedipkan empty state.
+        !isLoading &&
+        !isPlaceholderData &&
+        !(meta && page > meta.lastPage) && (
+          <div className="mt-6 rounded-[24px] border border-dashed border-slate-200 bg-white px-4 py-20 text-center font-bdo text-sm break-words text-slate-400">
+            {q ? `Tidak ada hasil untuk "${q}".` : 'Tidak ada transaksi di tab ini.'}
           </div>
         )
       ) : (
-        <div className="mt-6 space-y-4">
+        <div className={`mt-6 space-y-4 transition-opacity ${isPlaceholderData ? 'opacity-60' : ''}`}>
           {transactions.map((t) => (
             <PaymentCard key={t.id} row={t} onReject={() => setRejecting(t)} />
           ))}
         </div>
+      )}
+
+      {meta && meta.total > 0 && (
+        <ServerPagination
+          {...meta}
+          // Halaman yang dipilih langsung tersorot walau datanya masih dimuat.
+          page={page}
+          perPage={perPage}
+          onPageChange={setPage}
+          onPerPageChange={(size) => {
+            setPerPage(size)
+            setPage(1)
+          }}
+        />
       )}
 
       {rejecting && <RejectDialog row={rejecting} onClose={() => setRejecting(null)} />}

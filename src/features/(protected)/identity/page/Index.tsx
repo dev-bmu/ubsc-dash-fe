@@ -3,8 +3,22 @@
 import '../identity.css'
 
 import { type ColumnDef, createColumnHelper } from '@tanstack/react-table'
-import { AlertTriangle, BadgeCheck, CheckCircle, Clock3, Eye, FileQuestion, ScanSearch, Search, ShieldCheck, Users, X, XCircle } from 'lucide-react'
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import {
+  AlertTriangle,
+  BadgeCheck,
+  Camera,
+  CheckCircle,
+  Clock3,
+  Eye,
+  FileQuestion,
+  ScanSearch,
+  Search,
+  ShieldCheck,
+  Users,
+  X,
+  XCircle
+} from 'lucide-react'
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { DataTable } from '@/components/admin/DataTable'
 import { IdentityStatusBadge } from '@/components/admin/StatusBadge'
@@ -428,6 +442,51 @@ function FilterButton({ active, children, onClick }: { active: boolean; children
   )
 }
 
+/** Pemilih antrean (dokumen vs foto) — sengaja besar + hitungan menunggu supaya antrean foto tidak terlewat. */
+function QueueTab({
+  active,
+  icon,
+  title,
+  hint,
+  pending,
+  onClick
+}: {
+  active: boolean
+  icon: ReactNode
+  title: string
+  hint: string
+  pending: number | null
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'flex min-w-0 items-center gap-3 rounded-[22px] border p-3.5 text-left transition-all',
+        active ? 'border-[#F8B5A8] bg-[#FFF7F5] shadow-[0_14px_26px_-24px_rgba(227,83,54,.7)]' : 'border-slate-200 bg-white hover:border-[#F8B5A8]'
+      )}
+    >
+      <ShinyIcon className="h-10 w-10">{icon}</ShinyIcon>
+      <span className="min-w-0 flex-1">
+        <span className="block font-clash text-[15px] leading-tight font-semibold text-slate-950">{title}</span>
+        <span className="mt-0.5 block truncate font-bdo text-[11px] font-medium text-slate-500">{hint}</span>
+      </span>
+      {pending !== null && (
+        <span
+          className={cn(
+            'shrink-0 rounded-full px-2.5 py-1 font-bdo text-[11px] font-bold whitespace-nowrap tabular-nums',
+            pending > 0 ? 'bg-[#E35336] text-white' : 'bg-slate-100 text-slate-400'
+          )}
+        >
+          {pending > 0 ? `${pending} menunggu` : 'Bersih'}
+        </span>
+      )}
+    </button>
+  )
+}
+
 function IdentityMobileCard({ user, onViewDoc }: { user: IdentityUserDto; onViewDoc: (user: IdentityUserDto) => void }) {
   const tone = statusTone(user.identityStatus)
 
@@ -486,11 +545,22 @@ export default function IdentityIndex() {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   // Foto member (tahap B) memakai antrean yang sama supaya FO tidak perlu belajar layar baru.
-  const [view, setView] = useState<'identity' | 'photo'>('identity')
+  // null = staf belum memilih tab: buka Foto Member bila datang lewat #foto-member atau hanya foto yang menunggu.
+  const [view, setView] = useState<'identity' | 'photo' | null>(null)
+  useEffect(() => {
+    if (window.location.hash === '#foto-member') setView('photo')
+  }, [])
   const photos = useMemberPhotoIndex()
   const pendingPhotos = (photos.data?.users ?? []).filter((user) => user.status === 'pending').length
 
   const pending = users.filter((user) => user.identityStatus === 'pending').length
+  // Pilih otomatis SEKALI setelah kedua antrean termuat — jangan pindah tab sendiri saat hitungan berubah.
+  // Updater fungsi: pilihan #foto-member (atau klik staf) yang sudah ada tidak ditimpa.
+  useEffect(() => {
+    if (view !== null || isLoading || photos.isLoading) return
+    setView((current) => current ?? (pending === 0 && pendingPhotos > 0 ? 'photo' : 'identity'))
+  }, [view, isLoading, photos.isLoading, pending, pendingPhotos])
+  const activeView = view ?? 'identity'
   const verified = users.filter((user) => user.identityStatus === 'verified').length
   const rejected = users.filter((user) => user.identityStatus === 'rejected').length
 
@@ -583,24 +653,34 @@ export default function IdentityIndex() {
     <>
       <div className="px-4 pt-2 xl:px-8">
         <div className="animate-fade-in-up flex flex-col gap-1 pt-4">
-          <span className="font-bdo text-[11px] font-medium tracking-wide text-[#E35336]">Admin - Warga UB Verification</span>
+          <span className="font-bdo text-[11px] font-medium tracking-wide text-[#E35336]">Admin - Dokumen Warga UB & Foto Member Gym</span>
           <h1 className="font-clash text-3xl font-bold tracking-tight uppercase xl:text-4xl">
-            <ShinyTextBlack text="Identity Queue" speed={5} />
+            <ShinyTextBlack text="Verifikasi ID & Foto" speed={5} />
           </h1>
         </div>
       </div>
 
       <main className="ubsc-page-identity max-w-full flex-1 px-4 pt-2 pb-10 xl:px-8">
-        <div className="identity-scrollbar mt-4 flex gap-2 overflow-x-auto">
-          <FilterButton active={view === 'identity'} onClick={() => setView('identity')}>
-            Dokumen Warga UB{pending > 0 ? ` · ${pending}` : ''}
-          </FilterButton>
-          <FilterButton active={view === 'photo'} onClick={() => setView('photo')}>
-            Foto Member{pendingPhotos > 0 ? ` · ${pendingPhotos}` : ''}
-          </FilterButton>
+        <div id="foto-member" className="mt-4 grid scroll-mt-6 gap-2 sm:grid-cols-2">
+          <QueueTab
+            active={activeView === 'identity'}
+            icon={<ShieldCheck size={15} />}
+            title="Dokumen Warga UB"
+            hint="Dokumen identitas untuk tarif Warga UB"
+            pending={isLoading ? null : pending}
+            onClick={() => setView('identity')}
+          />
+          <QueueTab
+            active={activeView === 'photo'}
+            icon={<Camera size={15} />}
+            title="Foto Member Gym"
+            hint="Foto wajah yang dicocokkan FO saat check-in"
+            pending={photos.isLoading ? null : pendingPhotos}
+            onClick={() => setView('photo')}
+          />
         </div>
 
-        {view === 'photo' ? (
+        {activeView === 'photo' ? (
           <MemberPhotoQueue />
         ) : (
           <div className="flex flex-col gap-5 pt-6 pb-20">
@@ -626,8 +706,8 @@ export default function IdentityIndex() {
                       Review dokumen Warga UB dengan alur yang tegas dan cepat.
                     </h2>
                     <p className="mt-4 max-w-2xl font-bdo text-sm leading-relaxed font-medium sm:text-base sm:leading-6">
-                      Fokus halaman ini hanya untuk pengajuan Warga UB. Admin bisa menilai dokumen, melihat nomor identitas, dan mengambil keputusan
-                      tanpa berpindah halaman.
+                      Tab ini khusus pengajuan Warga UB. Admin bisa menilai dokumen, melihat nomor identitas, dan mengambil keputusan tanpa berpindah
+                      halaman.
                     </p>
                   </div>
 

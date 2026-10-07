@@ -4,12 +4,13 @@ import {
   approvePayment,
   getFinanceReport,
   getPaymentsIndex,
+  type PaymentsQuery,
   rejectPayment,
   removeQrisImage,
   updatePaymentSettings,
   uploadQrisImage
 } from '@/services/Payments'
-import type { PaymentQueueTab, PaymentSettingsPayload } from '@/types/contracts/contracts'
+import type { PaymentSettingsPayload } from '@/types/contracts/contracts'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 // ===== Hooks data admin Verifikasi Pembayaran + Laporan Keuangan (Fase 8D) =====
@@ -19,8 +20,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 const PAYMENTS = ['admin', 'payments'] as const
 const FINANCE = ['admin', 'finance'] as const
 
-export function usePaymentsIndex(tab: PaymentQueueTab) {
-  return useQuery({ queryKey: [...PAYMENTS, tab], queryFn: () => getPaymentsIndex(tab), placeholderData: keepPreviousData })
+export function usePaymentsIndex(query: PaymentsQuery) {
+  return useQuery({ queryKey: [...PAYMENTS, query], queryFn: () => getPaymentsIndex(query), placeholderData: keepPreviousData })
 }
 
 function useInvalidateAfterDecision() {

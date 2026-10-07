@@ -42,6 +42,7 @@ import { cn } from '@/lib/utils'
 import { PERMISSIONS, isAdministrator, matchPrefix } from '@/config/permissions'
 import { routes } from '@/config/routes'
 import { useAuth } from '@/context/AuthContext'
+import { useIdentityIndex, useMemberPhotoIndex } from '@/hooks/api/useIdentity'
 
 const SIDEBAR_SCROLL_KEY = 'ubsc_admin_sidebar_scroll_top'
 
@@ -213,7 +214,8 @@ function NavLink({
 
   // ── Badge ────────────────────────────────────────────────
 
-  const badgeEl = item.badge ? <span className={item.active ? 'sb-badge-preview-active' : 'sb-badge-preview'}>{item.badge}</span> : null
+  // -active hanya menimpa warna; tipografi & padding tetap dari kelas dasar.
+  const badgeEl = item.badge ? <span className={cn('sb-badge-preview', item.active && 'sb-badge-preview-active')}>{item.badge}</span> : null
 
   // ── Inner content ────────────────────────────────────────
 
@@ -224,7 +226,11 @@ function NavLink({
       </span>
     ) : null
 
-  const tooltipLabel = disabled ? `${item.label} - ${item.disabledReason ?? 'akses belum diberikan'}` : item.label
+  const tooltipLabel = disabled
+    ? `${item.label} - ${item.disabledReason ?? 'akses belum diberikan'}`
+    : item.badge
+      ? `${item.label} (${item.badge})`
+      : item.label
 
   const inner = (
     <>
@@ -416,6 +422,16 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
     } as T
   }
 
+  // Badge antrean verifikasi: memakai ulang query halaman /identity, jadi badge ikut turun begitu staf
+  // memutuskan di sana (invalidate key yang sama). Tanpa identity.verify tidak ada fetch (hindari 403).
+  // ponytail: dua daftar penuh demi satu angka; ganti ke endpoint hitung bila antrean identitas membesar.
+  const canVerifyIdentity = can([PERMISSIONS.IDENTITY_VERIFY])
+  const identityQueue = useIdentityIndex(canVerifyIdentity)
+  const photoQueue = useMemberPhotoIndex(canVerifyIdentity)
+  const pendingVerifications =
+    (identityQueue.data?.users ?? []).filter((queued) => queued.identityStatus === 'pending').length +
+    (photoQueue.data?.users ?? []).filter((queued) => queued.status === 'pending').length
+
   // Persist collapse state in localStorage
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false
@@ -509,10 +525,12 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           active: dashboardActive
         },
         {
+          // Dokumen Warga UB + foto wajah member gym diverifikasi di halaman yang sama.
           icon: BadgeCheck,
-          label: 'Identity Queue',
+          label: 'Verifikasi ID & Foto',
           href: routes.identity(),
           active: identityActive,
+          badge: pendingVerifications > 0 ? (pendingVerifications > 99 ? '99+' : String(pendingVerifications)) : undefined,
           permissions: [PERMISSIONS.IDENTITY_VERIFY]
         },
         {
