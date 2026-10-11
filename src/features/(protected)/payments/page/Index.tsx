@@ -30,8 +30,7 @@ const EMPTY_SETTINGS: PaymentSettingsDto = {
   bank: { bank: '', accountNumber: '', accountHolder: '' },
   qris: null,
   holdMinutes: 120,
-  adminFee: 500,
-  uniqueCodeMax: 500,
+  uniqueCodeMax: 999,
   accurateCashAccountNo: ''
 }
 
@@ -71,7 +70,6 @@ export default function PaymentsIndex() {
         bank: data.bank,
         qris: data.qris,
         holdMinutes: data.holdMinutes,
-        adminFee: data.adminFee,
         uniqueCodeMax: data.uniqueCodeMax,
         accurateCashAccountNo: data.accurateCashAccountNo
       }
@@ -86,8 +84,7 @@ export default function PaymentsIndex() {
         <div>
           <h1 className="font-clash text-2xl font-semibold text-slate-950">Verifikasi Pembayaran</h1>
           <p className="mt-1 font-bdo text-sm text-slate-500">
-            Cocokkan nominal transfer dengan mutasi rekening. Nominal = harga + biaya admin + kode unik, berbeda untuk tiap transfer yang masih
-            terbuka.
+            Cocokkan nominal transfer dengan mutasi rekening. Nominal = harga + kode unik, berbeda untuk tiap transfer yang masih terbuka.
           </p>
         </div>
         <button
@@ -251,7 +248,7 @@ function PaymentCard({ row, onReject }: { row: PaymentRow; onReject: () => void 
     }
   }
 
-  // Tiga digit terakhir (biaya admin + kode unik) yang dicari staff di mutasi rekening.
+  // Tiga digit terakhir (kode unik; transaksi lama ikut biaya admin) yang dicari staff di mutasi rekening.
   const head = String(row.total).slice(0, -3)
   const tail = String(row.total).slice(-3)
 
@@ -423,7 +420,6 @@ function SettingsPanel({ settings }: { settings: PaymentSettingsDto }) {
     accountHolder: settings.bank.accountHolder,
     qrisMerchantName: settings.qris?.merchantName ?? '',
     holdMinutes: settings.holdMinutes,
-    adminFee: settings.adminFee,
     uniqueCodeMax: settings.uniqueCodeMax,
     accurateCashAccountNo: settings.accurateCashAccountNo
   })
@@ -441,7 +437,6 @@ function SettingsPanel({ settings }: { settings: PaymentSettingsDto }) {
         accountHolder: data.accountHolder,
         qrisMerchantName: data.qrisMerchantName,
         holdMinutes: Number(data.holdMinutes),
-        adminFee: Number(data.adminFee),
         uniqueCodeMax: Number(data.uniqueCodeMax),
         accurateCashAccountNo: data.accurateCashAccountNo
       })
@@ -500,22 +495,13 @@ function SettingsPanel({ settings }: { settings: PaymentSettingsDto }) {
           hint="Slot dilepas otomatis jika belum ada bukti transfer dalam rentang ini."
         />
         <Field
-          label="Biaya admin per transaksi (Rp)"
-          value={String(data.adminFee)}
-          onChange={(v) => setData('adminFee', Number(v) || 0)}
-          error={errors.adminFee}
-          placeholder="500"
-          type="number"
-          hint="Ditambahkan sekali ke setiap transaksi, termasuk walk-in dan membership. 0 = tanpa biaya admin. Transfer yang sudah terbuka tidak berubah."
-        />
-        <Field
           label="Kode unik maksimal"
           value={String(data.uniqueCodeMax)}
           onChange={(v) => setData('uniqueCodeMax', Number(v) || 0)}
           error={errors.uniqueCodeMax}
-          placeholder="500"
+          placeholder="999"
           type="number"
-          hint="Kode 1 sampai angka ini. Juga batas transfer terbuka bersamaan untuk harga yang sama."
+          hint="Kode unik acak 501 sampai nilai ini (600–999). Selisihnya dengan 500 = batas transfer terbuka bersamaan untuk harga yang sama."
         />
         <Field
           label="Kode akun Kas/Bank Accurate"
@@ -610,8 +596,8 @@ function QrisPanel({ qris }: { qris: PaymentSettingsDto['qris'] }) {
             </button>
           )}
           <p className="max-w-xs font-bdo text-[11px] leading-relaxed text-slate-400">
-            Gambar QRIS statis dari bank/penyedia QRIS (JPG, PNG, WEBP, maks 5 MB). Pelanggan memindai lalu mengetik nominal persis (harga + biaya
-            admin + kode unik).
+            Gambar QRIS statis dari bank/penyedia QRIS (JPG, PNG, WEBP, maks 5 MB). Pelanggan memindai lalu mengetik nominal persis (harga + kode
+            unik).
           </p>
         </div>
       </div>

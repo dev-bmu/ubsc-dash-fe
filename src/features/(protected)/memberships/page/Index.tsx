@@ -115,10 +115,15 @@ function formatPrice(amount: number): string {
   return `Rp ${amount.toLocaleString('id-ID')}`
 }
 
-/** Harga + biaya admin + kode unik; harga saja bila keduanya kosong (membership lama / gratis). */
+/** Harga + kode unik (+ biaya admin, hanya transaksi lama); harga saja bila tanpa kode (membership lama / gratis). */
 function amountBreakdown(t: MembershipTransactionDto): string {
   if (t.total === t.amount) return formatPrice(t.amount)
-  return `${formatPrice(t.total)} (${formatPrice(t.amount)} + admin ${formatPrice(t.adminFee)} + kode ${t.uniqueCode ?? 0})`
+  return `${formatPrice(t.total)} (${formatPrice(t.amount)}${adminPart(t)} + kode ${t.uniqueCode ?? 0})`
+}
+
+/** Biaya admin dihapus 2026-10-08 — hanya transaksi lama yang masih membawanya. */
+function adminPart(t: MembershipTransactionDto): string {
+  return t.adminFee > 0 ? ` + admin ${formatPrice(t.adminFee)}` : ''
 }
 
 /**
@@ -133,8 +138,7 @@ function createdToast(message: string, membership: AdminMembershipDto): string {
 function TransferNote() {
   return (
     <p className="mt-2 font-bdo text-[11px] font-medium text-slate-400">
-      Pelanggan mentransfer nominal ini + biaya admin + kode unik — nominal pastinya ada di invoice setelah disimpan. Membership aktif setelah Tandai
-      Lunas.
+      Pelanggan mentransfer nominal ini + kode unik — nominal pastinya ada di invoice setelah disimpan. Membership aktif setelah Tandai Lunas.
     </p>
   )
 }
@@ -189,8 +193,8 @@ function PendingPaymentPanel({ membership, onPaid }: { membership: AdminMembersh
       <p className="font-bdo text-[10px] font-bold tracking-[0.16em] text-amber-700 uppercase">Menunggu pembayaran · {t.receiptNumber}</p>
       <p className="mt-2 font-clash text-2xl font-bold text-slate-950">{formatPrice(t.total)}</p>
       <p className="mt-1 font-bdo text-xs font-semibold text-slate-600">
-        {formatPrice(t.amount)} + admin {formatPrice(t.adminFee)} + kode unik {t.uniqueCode ?? 0}. Pelanggan mentransfer TEPAT nominal ini — 3 digit
-        terakhirnya yang mencocokkan mutasi.
+        {formatPrice(t.amount)}
+        {adminPart(t)} + kode unik {t.uniqueCode ?? 0}. Pelanggan mentransfer TEPAT nominal ini — 3 digit terakhirnya yang mencocokkan mutasi.
       </p>
       <p className="mt-2 font-bdo text-xs font-medium text-slate-500">
         {membership.userId

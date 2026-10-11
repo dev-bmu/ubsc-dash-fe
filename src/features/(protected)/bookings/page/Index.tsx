@@ -561,7 +561,8 @@ function BookingDetail({ booking, onClose }: { booking: AdminBookingDto; onClose
               <dd className="text-right">
                 <p className="font-clash text-lg font-semibold text-slate-900">{formatPrice(tx.total)}</p>
                 <p className="font-bdo text-[11px] text-slate-400">
-                  {formatPrice(tx.amount)} + admin {formatPrice(tx.adminFee)} + kode {tx.uniqueCode ?? 0}
+                  {formatPrice(tx.amount)}
+                  {tx.adminFee > 0 ? ` + admin ${formatPrice(tx.adminFee)}` : ''} + kode {tx.uniqueCode ?? 0}
                 </p>
               </dd>
             </div>

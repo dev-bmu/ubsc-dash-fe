@@ -37,7 +37,8 @@ import type { AdminFinanceDto, PaymentStatus } from '@/types/contracts/contracts
 // Data: useFinanceReport(month, year) (pengganti props Inertia). Ganti periode (router.get preserveState:false)
 // → state lokal `period`; konten di-remount lewat `key` periode agar state turunan ikut ter-reset.
 
-// totalRevenue = uang masuk (harga + biaya admin + kode unik); booking/membership = harga saja.
+// totalRevenue = uang masuk (harga + kode unik, + biaya admin transaksi lama); booking/membership = harga saja.
+// Biaya admin dihapus 2026-10-08: semua tampilannya hanya muncul bila nilainya > 0 (transaksi lama).
 interface FinanceStats {
   totalRevenue: number
   bookingRevenue: number
@@ -75,7 +76,7 @@ interface LedgerRow {
   customerName: string
   type: 'booking' | 'membership' | 'other'
   subject: string
-  /** Harga saja; total = amount + adminFee + uniqueCode. */
+  /** Harga saja; total = amount + adminFee + uniqueCode (adminFee > 0 hanya transaksi lama). */
   amount: number
   adminFee: number
   uniqueCode: number
@@ -448,7 +449,12 @@ function RevenueHero({
             share={membershipShare}
             icon={<CreditCard size={14} />}
           />
-          <RevenueHeroLine label="Biaya Admin + Kode Unik" value={formatCompact(feeRevenue)} share={feeShare} icon={<Banknote size={14} />} />
+          <RevenueHeroLine
+            label={stats.adminFeeRevenue > 0 ? 'Biaya Admin + Kode Unik' : 'Kode Unik'}
+            value={formatCompact(feeRevenue)}
+            share={feeShare}
+            icon={<Banknote size={14} />}
+          />
           <RevenueHeroLine label="Transaksi Lunas" value={String(stats.paidTransactions)} share={100} icon={<ReceiptText size={14} />} muted />
         </div>
       </div>
@@ -1280,6 +1286,7 @@ function RevenueMixPanel({ rows, stats }: { rows: TypeBreakdown[]; stats: Financ
   const booking = fallbackRows.find((row) => row.type === 'booking')
   const membership = fallbackRows.find((row) => row.type === 'membership')
   const fees = fallbackRows.filter((row) => row.type === 'admin_fee' || row.type === 'unique_code')
+  const hasAdminFee = fallbackRows.some((row) => row.type === 'admin_fee' && row.revenue > 0)
   // Ujung gradien bar: warna lama untuk dua baris Laravel, warna barisnya sendiri untuk sisanya.
   const gradientEnd: Partial<Record<TypeBreakdown['type'], string>> = { booking: '#F08C78', membership: '#34d399' }
 
@@ -1294,7 +1301,7 @@ function RevenueMixPanel({ rows, stats }: { rows: TypeBreakdown[]; stats: Financ
             <p className="font-bdo text-[10px] font-bold tracking-[0.16em] text-[#B93D2A]/70 uppercase">Revenue split</p>
             <h2 className="font-clash text-lg leading-tight font-semibold text-slate-950">Sumber Pendapatan</h2>
             <p className="mt-1 font-bdo text-xs font-semibold text-slate-500">
-              Harga booking dan membership, ditambah biaya admin dan kode unik yang ikut ditransfer pelanggan.
+              Harga booking dan membership, ditambah kode unik{hasAdminFee ? ' (dan biaya admin transaksi lama)' : ''} yang ikut ditransfer pelanggan.
             </p>
           </div>
         </div>
@@ -1309,7 +1316,7 @@ function RevenueMixPanel({ rows, stats }: { rows: TypeBreakdown[]; stats: Financ
             share={membership?.share ?? 0}
           />
           <RevenueMixStat
-            label="Admin + Kode"
+            label={hasAdminFee ? 'Admin + Kode' : 'Kode Unik'}
             value={formatCompact(fees.reduce((sum, row) => sum + row.revenue, 0))}
             accent="#0EA5E9"
             share={fees.reduce((sum, row) => sum + row.share, 0)}
@@ -1683,13 +1690,13 @@ function LedgerTable({
   )
 }
 
-/** Rincian nominal di bawah total; transaksi tanpa biaya admin & kode tetap bertanda settled/open. */
+/** Rincian nominal di bawah total (admin hanya transaksi lama); transaksi tanpa kode tetap bertanda settled/open. */
 function LedgerAmountNote({ row }: { row: LedgerRow }) {
   const extra = row.adminFee + row.uniqueCode
   return (
     <p className="mt-0.5 font-bdo text-[10px] font-bold text-slate-400">
       {extra > 0
-        ? `${formatRupiah(row.amount)} + admin ${formatNumber(row.adminFee)} + kode ${formatNumber(row.uniqueCode)}`
+        ? `${formatRupiah(row.amount)}${row.adminFee > 0 ? ` + admin ${formatNumber(row.adminFee)}` : ''} + kode ${formatNumber(row.uniqueCode)}`
         : row.paymentStatus === 'PAID'
           ? 'settled'
           : 'open'}
@@ -1784,7 +1791,9 @@ function FinancePrintTemplate({
     { kategori: 'Keuangan', detail: 'Total Pendapatan Periode', satuan: periodLabel, nilai: formatRupiah(stats.totalRevenue) },
     { kategori: 'Keuangan', detail: 'Pendapatan Reservasi', satuan: 'booking', nilai: formatRupiah(stats.bookingRevenue) },
     { kategori: 'Keuangan', detail: 'Pendapatan Membership', satuan: 'membership', nilai: formatRupiah(stats.membershipRevenue) },
-    { kategori: 'Keuangan', detail: 'Pendapatan Biaya Admin', satuan: 'transaksi', nilai: formatRupiah(stats.adminFeeRevenue) },
+    ...(stats.adminFeeRevenue > 0
+      ? [{ kategori: 'Keuangan', detail: 'Pendapatan Biaya Admin (transaksi lama)', satuan: 'transaksi', nilai: formatRupiah(stats.adminFeeRevenue) }]
+      : []),
     { kategori: 'Keuangan', detail: 'Kode Unik Transfer', satuan: 'transaksi', nilai: formatRupiah(stats.uniqueCodeRevenue) },
     { kategori: 'Keuangan', detail: 'Rata-rata Pendapatan Harian', satuan: `${activeDays} hari aktif`, nilai: formatRupiah(avgRevenue) },
     {
@@ -1894,7 +1903,8 @@ function FinancePrintTemplate({
           <div className="prt-keterangan">
             <span className="prt-keterangan-label">KETERANGAN</span>
             Data laporan diambil dari transaksi yang masuk pada periode {periodLabel}. Nilai pendapatan dihitung dari transaksi berstatus lunas,
-            sebesar uang yang masuk: harga, biaya admin, dan kode unik. Pending, gagal, dan expired disajikan sebagai bahan rekonsiliasi finance.
+            sebesar uang yang masuk: harga dan kode unik{stats.adminFeeRevenue > 0 ? ' (serta biaya admin transaksi lama)' : ''}. Pending, gagal, dan
+            expired disajikan sebagai bahan rekonsiliasi finance.
           </div>
           <div className="prt-summary">
             <table>
@@ -1907,10 +1917,12 @@ function FinancePrintTemplate({
                   <td>Membership</td>
                   <td>{formatRupiah(stats.membershipRevenue)}</td>
                 </tr>
-                <tr>
-                  <td>Biaya Admin</td>
-                  <td>{formatRupiah(stats.adminFeeRevenue)}</td>
-                </tr>
+                {stats.adminFeeRevenue > 0 && (
+                  <tr>
+                    <td>Biaya Admin</td>
+                    <td>{formatRupiah(stats.adminFeeRevenue)}</td>
+                  </tr>
+                )}
                 <tr>
                   <td>Kode Unik</td>
                   <td>{formatRupiah(stats.uniqueCodeRevenue)}</td>
@@ -1940,6 +1952,9 @@ function FinancePrintTemplate({
 
 function downloadFinanceCsv(rows: LedgerRow[], period: { month: number; year: number }) {
   const periodLabel = `${MONTH_NAMES[period.month]} ${period.year}`
+  // Kolom Biaya Admin hanya bila ada transaksi lama yang membawanya (biaya admin dihapus 2026-10-08).
+  const withFee = rows.some((row) => row.adminFee > 0)
+  const feeCell = (cell: string | number) => (withFee ? [cell] : [])
   const headers = [
     'No',
     'Periode',
@@ -1951,7 +1966,7 @@ function downloadFinanceCsv(rows: LedgerRow[], period: { month: number; year: nu
     'Detail',
     'Status Pembayaran',
     'Harga',
-    'Biaya Admin',
+    ...feeCell('Biaya Admin'),
     'Kode Unik',
     'Total',
     'Checkout URL'
@@ -1969,7 +1984,7 @@ function downloadFinanceCsv(rows: LedgerRow[], period: { month: number; year: nu
       row.subject,
       PAYMENT_LABEL[row.paymentStatus],
       row.amount,
-      row.adminFee,
+      ...feeCell(row.adminFee),
       row.uniqueCode,
       row.total,
       row.checkoutUrl
@@ -1993,7 +2008,7 @@ function downloadFinanceCsv(rows: LedgerRow[], period: { month: number; year: nu
       'Total baris',
       rows.length,
       sum((row) => row.amount),
-      sum((row) => row.adminFee),
+      ...feeCell(sum((row) => row.adminFee)),
       sum((row) => row.uniqueCode),
       sum((row) => row.total),
       ''
@@ -2033,7 +2048,6 @@ function buildFinanceFallback(period: { month: number; year: number }): AdminFin
     typeBreakdown: [
       { name: 'Reservasi', type: 'booking', revenue: 0, share: 0, color: '#E35336' },
       { name: 'Membership', type: 'membership', revenue: 0, share: 0, color: '#10B981' },
-      { name: 'Biaya Admin', type: 'admin_fee', revenue: 0, share: 0, color: '#0EA5E9' },
       { name: 'Kode Unik', type: 'unique_code', revenue: 0, share: 0, color: '#A855F7' }
     ],
     ledger: [],
