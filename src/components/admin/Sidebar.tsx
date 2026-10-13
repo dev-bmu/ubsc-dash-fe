@@ -545,14 +545,14 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           label: 'Bookings',
           href: routes.bookings(),
           active: bookingsActive || classesActive || checkinActive,
-          permissions: [PERMISSIONS.BOOKINGS_READ, PERMISSIONS.BOOKINGS_MANAGE, PERMISSIONS.PAYMENTS_MANAGE],
+          permissions: [PERMISSIONS.BOOKINGS_READ, PERMISSIONS.BOOKINGS_MANAGE, PERMISSIONS.PAYMENTS_MANAGE, PERMISSIONS.BOOKINGS_RESCHEDULE],
           children: [
             {
               icon: CalendarCheck2,
               label: 'Reservasi',
               href: routes.bookings(),
               active: bookingsActive,
-              permissions: [PERMISSIONS.BOOKINGS_READ, PERMISSIONS.BOOKINGS_MANAGE, PERMISSIONS.PAYMENTS_MANAGE]
+              permissions: [PERMISSIONS.BOOKINGS_READ, PERMISSIONS.BOOKINGS_MANAGE, PERMISSIONS.PAYMENTS_MANAGE, PERMISSIONS.BOOKINGS_RESCHEDULE]
             },
             {
               // The desk's home screen. Front Office holds only

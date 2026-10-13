@@ -2,10 +2,12 @@ import axiosInstance from '@/lib/axios'
 import type {
   AdminBookingCreatedDto,
   AdminBookingIndexDto,
+  AdminRescheduleResultDto,
   BookingStatus,
   CheckInDetailDto,
   CheckInIndexDto,
-  ClassRosterDto
+  ClassRosterDto,
+  RescheduleOptionsDto
 } from '@/types/contracts/contracts'
 
 // ===== Service admin Booking / Check-in / Class roster (Fase 8B) =====
@@ -21,6 +23,7 @@ export const getBookingsIndex = async (): Promise<AdminBookingIndexDto> => {
 
 export interface CreateBookingPayload {
   customerName: string
+  customerPhone: string
   facilityId: string
   facilityUnitId: string | null
   bookingDate: string
@@ -42,6 +45,27 @@ export const updateBookingStatus = async (id: string, status: BookingStatus): Pr
 
 export const cancelBooking = async (id: string): Promise<void> => {
   await axiosInstance.delete(`/admin/bookings/${id}`)
+}
+
+// ---- Pindah jadwal (bookings.reschedule) ----
+// Unit kosong = unit booking saat ini (server yang menentukan).
+export const getRescheduleOptions = async (id: string, date: string, facilityUnitId: string): Promise<RescheduleOptionsDto> => {
+  const res = await axiosInstance.get<Envelope<RescheduleOptionsDto>>(`/admin/bookings/${id}/reschedule-options`, {
+    params: facilityUnitId ? { date, facilityUnitId } : { date }
+  })
+  return res.data.data
+}
+
+export interface ReschedulePayload {
+  bookingDate: string
+  startTime: string
+  facilityUnitId: string | null
+  reason: string
+}
+
+export const rescheduleBooking = async (id: string, payload: ReschedulePayload): Promise<AdminRescheduleResultDto> => {
+  const res = await axiosInstance.patch<Envelope<AdminRescheduleResultDto>>(`/admin/bookings/${id}/reschedule`, payload)
+  return res.data.data
 }
 
 // ---- Check-in ----

@@ -9,10 +9,13 @@ import {
   getCheckIn,
   getCheckInIndex,
   getClassRoster,
+  getRescheduleOptions,
+  rescheduleBooking,
   restoreClassSession,
   updateBookingStatus,
   type CancelSessionPayload,
   type CreateBookingPayload,
+  type ReschedulePayload,
   type RestoreSessionPayload,
   type RosterParams
 } from '@/services/Bookings'
@@ -45,6 +48,27 @@ export function useUpdateBookingStatus() {
 export function useCancelBooking() {
   const qc = useQueryClient()
   return useMutation({ mutationFn: (id: string) => cancelBooking(id), onSuccess: () => qc.invalidateQueries({ queryKey: BOOKINGS }) })
+}
+
+// ---- Pindah jadwal ----
+// Di bawah BOOKINGS, jadi ikut segar setiap kali mutasi booking menginvalidasi daftar.
+export function useRescheduleOptions(id: string, date: string, facilityUnitId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...BOOKINGS, 'reschedule-options', id, date, facilityUnitId],
+    queryFn: () => getRescheduleOptions(id, date, facilityUnitId),
+    enabled: enabled && Boolean(date)
+  })
+}
+
+// Booking pindah hari/jam/unit: daftar reservasi, roster kelas, dan daftar check-in ikut berubah.
+export function useRescheduleBooking() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...payload }: ReschedulePayload & { id: string }) => rescheduleBooking(id, payload),
+    onSuccess: () => {
+      for (const queryKey of [BOOKINGS, CLASSES, CHECKIN]) qc.invalidateQueries({ queryKey })
+    }
+  })
 }
 
 // ---- Check-in ----

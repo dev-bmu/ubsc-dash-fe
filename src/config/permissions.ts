@@ -101,7 +101,10 @@ const PATH_PERMISSIONS: ReadonlyArray<{ prefix: string; permissions: PermissionC
   { prefix: '/facility-categories', permissions: [PERMISSIONS.FACILITIES_READ, PERMISSIONS.FACILITIES_MANAGE, PERMISSIONS.PRICING_MANAGE] },
   { prefix: '/checkin', permissions: [PERMISSIONS.BOOKINGS_READ, PERMISSIONS.BOOKINGS_MANAGE] },
   { prefix: '/classes', permissions: [PERMISSIONS.BOOKINGS_MANAGE] },
-  { prefix: '/bookings', permissions: [PERMISSIONS.BOOKINGS_READ, PERMISSIONS.BOOKINGS_MANAGE, PERMISSIONS.PAYMENTS_MANAGE] },
+  {
+    prefix: '/bookings',
+    permissions: [PERMISSIONS.BOOKINGS_READ, PERMISSIONS.BOOKINGS_MANAGE, PERMISSIONS.PAYMENTS_MANAGE, PERMISSIONS.BOOKINGS_RESCHEDULE]
+  },
   { prefix: '/memberships/plans', permissions: [PERMISSIONS.MEMBERS_MANAGE] },
   {
     prefix: '/memberships',

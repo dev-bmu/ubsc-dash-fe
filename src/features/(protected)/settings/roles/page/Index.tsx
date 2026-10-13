@@ -77,6 +77,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
     items: [
       { key: PERMISSIONS.BOOKINGS_READ, label: 'Melihat Daftar Reservasi' },
       { key: PERMISSIONS.BOOKINGS_MANAGE, label: 'Membuat, Mengubah & Membatalkan Reservasi' },
+      { key: PERMISSIONS.BOOKINGS_RESCHEDULE, label: 'Mengubah Jadwal Reservasi' },
       { key: PERMISSIONS.BOOKINGS_LIMITS_MANAGE, label: 'Mengatur Batas & Jadwal Reservasi' }
     ]
   },
