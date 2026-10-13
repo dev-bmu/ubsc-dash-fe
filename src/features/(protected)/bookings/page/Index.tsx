@@ -3,7 +3,7 @@
 import '../bookings.css'
 
 import { type ColumnDef, createColumnHelper } from '@tanstack/react-table'
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, LayoutGrid, List, Plus } from 'lucide-react'
+import { ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Eye, LayoutGrid, List, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
@@ -22,6 +22,7 @@ import {
 } from '@/hooks/api/useBookings'
 import { useApprovePayment } from '@/hooks/api/usePayments'
 import { extractApiError, fieldErrorMap } from '@/lib/apiError'
+import { formatCalendarDateIntl, toJakartaDateKey } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { openPaymentProof } from '@/services/Payments'
 import type {
@@ -30,7 +31,8 @@ import type {
   BookingStatus,
   BookingTransactionDto,
   FacilityOptionDto,
-  PaymentStatus
+  PaymentStatus,
+  RescheduleSlotStatus
 } from '@/types/contracts/contracts'
 
 // ── Calendar constants ─────────────────────────────────────────────────────────
@@ -81,14 +83,14 @@ function formatDuration(minutes: number): string {
 const LONG_DATE: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }
 const SHORT_DATE: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }
 
+/** 'YYYY-MM-DD' -> "Senin, 26 Oktober 2026" (default). Jangan pernah tampilkan tanggal ISO ke FO. */
 function formatDateDisplay(dateStr: string, options: Intl.DateTimeFormatOptions = LONG_DATE): string {
-  const [y, mo, d] = dateStr.split('-').map(Number)
-  return new Date(y, (mo ?? 1) - 1, d).toLocaleDateString('id-ID', options)
+  return formatCalendarDateIntl(dateStr, options)
 }
 
-/** "Sen, 12 Okt 2026 · 10:00-12:00 · Lapangan 1" — riwayat & konfirmasi pindah jadwal. */
+/** "Senin, 12 Oktober 2026 · 10:00-12:00 · Lapangan 1" — riwayat pindah jadwal. */
 function scheduleLabel({ date, startTime, endTime, unitName }: BookingScheduleSnapshotDto): string {
-  return `${formatDateDisplay(date, SHORT_DATE)} · ${startTime}-${endTime}${unitName ? ` · ${unitName}` : ''}`
+  return `${formatDateDisplay(date)} · ${startTime}-${endTime}${unitName ? ` · ${unitName}` : ''}`
 }
 
 function shiftDate(dateStr: string, delta: number): string {
@@ -97,9 +99,9 @@ function shiftDate(dateStr: string, delta: number): string {
   return `${result.getFullYear()}-${padTwo(result.getMonth() + 1)}-${padTwo(result.getDate())}`
 }
 
+/** Hari ini menurut WIB, bukan zona PC FO — server menolak tanggal yang sudah lewat menurut WIB. */
 function todayStr(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${padTwo(now.getMonth() + 1)}-${padTwo(now.getDate())}`
+  return toJakartaDateKey(new Date())
 }
 
 // ── Status maps (Visual Refined) ──────────────────────────────────────────────
@@ -185,6 +187,58 @@ function PaymentBadge({ tx }: { tx: BookingTransactionDto | null }) {
 const inputBase =
   'w-full rounded-[14px] border border-slate-200 bg-slate-50/70 px-3.5 py-2.5 text-[13px] font-bdo font-semibold text-slate-900 placeholder:text-slate-400 outline-hidden transition-all focus:bg-white focus:border-[#E35336] focus:ring-4 focus:ring-[#E35336]/10'
 const labelBase = 'font-bdo text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-1.5 block'
+
+/**
+ * Kotak tanggal berbahasa Indonesia ("Senin, 26 Oktober 2026"). Input date asli (aksesibel) ditumpuk tak terlihat
+ * di atasnya, karena browser menampilkan input date dalam format lokalnya sendiri (mis. 10/26/2026).
+ */
+function DateBox({
+  id,
+  value,
+  min,
+  ariaLabel,
+  onChange,
+  className
+}: {
+  id?: string
+  value: string
+  min: string
+  ariaLabel: string
+  onChange: (date: string) => void
+  className?: string
+}) {
+  return (
+    <label
+      className={cn(
+        'relative flex cursor-pointer items-center gap-3 rounded-[14px] border-2 border-slate-200 bg-white px-3.5 py-3 transition-all focus-within:border-[#E35336] focus-within:ring-4 focus-within:ring-[#E35336]/10 hover:border-[#F8B5A8]',
+        className
+      )}
+    >
+      <CalendarDays size={20} className="shrink-0 text-[#E35336]" />
+      <span className="min-w-0 flex-1">
+        <span className="block font-bdo text-[10px] font-bold tracking-wider text-slate-400 uppercase">Tanggal dipilih</span>
+        <span className="block font-clash text-base font-semibold text-slate-950">{formatDateDisplay(value)}</span>
+      </span>
+      <span className="shrink-0 font-bdo text-xs font-bold text-[#B93D2A]">Buka kalender</span>
+      <input
+        id={id}
+        type="date"
+        value={value}
+        min={min}
+        aria-label={ariaLabel}
+        onClick={(e) => {
+          try {
+            e.currentTarget.showPicker()
+          } catch {
+            // Browser lama tanpa showPicker tetap membuka picker bawaan saat input diketuk.
+          }
+        }}
+        onChange={(e) => e.target.value && onChange(e.target.value)}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+      />
+    </label>
+  )
+}
 
 // ── Create Booking Form ────────────────────────────────────────────────────────
 
@@ -336,13 +390,12 @@ function CreateBookingForm({ facilities, onClose }: { facilities: FacilityOption
         <label htmlFor="booking_date" className={labelBase}>
           Tanggal
         </label>
-        <input
+        <DateBox
           id="booking_date"
-          type="date"
           value={data.bookingDate}
           min={todayStr()}
-          onChange={(e) => setData((prev) => ({ ...prev, bookingDate: e.target.value }))}
-          className={inputBase}
+          ariaLabel="Tanggal booking"
+          onChange={(bookingDate) => setData((prev) => ({ ...prev, bookingDate }))}
         />
         {errors.bookingDate && <p className="mt-1.5 font-bdo text-[11px] text-rose-500">{errors.bookingDate}</p>}
       </div>
@@ -440,9 +493,68 @@ function CreateBookingForm({ facilities, onClose }: { facilities: FacilityOption
   )
 }
 
+// ── Schedule Card ──────────────────────────────────────────────────────────────
+// Jadwal dalam huruf besar: hari, tanggal panjang, jam. FO membaca sekilas, jadi tidak ada format ISO.
+
+function ScheduleCard({
+  label,
+  tone,
+  date,
+  time,
+  unitName
+}: {
+  label: string
+  tone: 'muted' | 'brand'
+  date: string
+  /** null = jam belum dipilih. */
+  time: string | null
+  unitName: string | null
+}) {
+  const brand = tone === 'brand'
+  return (
+    <div
+      className={cn(
+        'min-w-0 rounded-[18px] border-2 p-3.5',
+        brand ? 'border-[#E35336] bg-[#FFF7F5]' : 'border-slate-200 bg-slate-50',
+        brand && !time && 'border-dashed'
+      )}
+    >
+      <span
+        className={cn(
+          'inline-flex rounded-md px-2 py-0.5 font-bdo text-[10px] font-bold tracking-[0.14em] uppercase',
+          brand ? 'bg-[#E35336] text-white' : 'bg-slate-200 text-slate-600'
+        )}
+      >
+        {label}
+      </span>
+      <p className={cn('mt-2.5 font-bdo text-sm font-bold', brand ? 'text-[#B93D2A]' : 'text-slate-500')}>
+        {formatDateDisplay(date, { weekday: 'long' })}
+      </p>
+      <p className={cn('font-clash text-base leading-snug font-semibold', brand ? 'text-slate-950' : 'text-slate-600')}>
+        {formatDateDisplay(date, { day: 'numeric', month: 'long', year: 'numeric' })}
+      </p>
+      {time ? (
+        <p className={cn('mt-1 font-clash text-xl font-bold tracking-tight', brand ? 'text-[#B93D2A]' : 'text-slate-600')}>{time}</p>
+      ) : (
+        <p className="mt-1 font-bdo text-sm font-semibold text-slate-400">Jam belum dipilih</p>
+      )}
+      {unitName && <p className={cn('mt-1 font-bdo text-xs font-semibold', brand ? 'text-[#8E2D20]' : 'text-slate-500')}>{unitName}</p>}
+    </div>
+  )
+}
+
 // ── Reschedule Form ────────────────────────────────────────────────────────────
 // Satu baris booking (satu sesi paket). Fasilitas, durasi, pax, harga & pembayaran tetap; yang pindah
 // hanya tanggal, jam, dan unit. Slot dihitung server (grid fasilitas + durasi asli, tanpa booking ini).
+// Dua langkah di panel yang sama: pilih -> cek ulang (Lama -> Baru) -> "Ya, pindahkan".
+
+const SLOT_NOTE: Record<RescheduleSlotStatus, string> = {
+  available: 'Tersedia',
+  full: 'Penuh',
+  past: 'Sudah lewat',
+  cancelled: 'Sesi dibatalkan',
+  registered: 'Sudah terdaftar'
+}
 
 function RescheduleForm({
   booking,
@@ -456,12 +568,7 @@ function RescheduleForm({
   onDone: () => void
 }) {
   const today = todayStr()
-  const currentLabel = scheduleLabel({
-    date: booking.bookingDate,
-    startTime: booking.startTime,
-    endTime: booking.endTime,
-    unitName: booking.facilityUnitName
-  })
+  const quickDates = Array.from({ length: 14 }, (_, i) => shiftDate(today, i))
   const [data, setData] = useState({
     // Unit lama yang sudah nonaktif tidak ada di daftar: staff wajib memilih unit lain.
     unitId: units.some((u) => u.id === booking.facilityUnitId) ? (booking.facilityUnitId ?? '') : '',
@@ -469,6 +576,7 @@ function RescheduleForm({
     startTime: '',
     reason: ''
   })
+  const [confirming, setConfirming] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const change = (patch: Partial<typeof data>) => {
     setData((prev) => ({ ...prev, ...patch }))
@@ -477,36 +585,43 @@ function RescheduleForm({
 
   // Panel detail biasanya sudah tergulir ke tombol aksi di bawah; mulai form dari atas.
   const rootRef = useRef<HTMLFormElement>(null)
-  useEffect(() => rootRef.current?.scrollIntoView({ block: 'start' }), [])
+  const toTop = () => rootRef.current?.scrollIntoView({ block: 'start' })
+  // Kurung kurawal wajib: scrollIntoView() di Chrome terbaru mengembalikan Promise, dan React menganggap
+  // nilai kembali effect sebagai fungsi cleanup ("destroy is not a function" -> halaman crash).
+  useEffect(() => {
+    rootRef.current?.scrollIntoView({ block: 'start' })
+  }, [])
 
   const needsUnit = units.length > 0 && !data.unitId
   const options = useRescheduleOptions(booking.id, data.date, data.unitId, !needsUnit)
   const reschedule = useRescheduleBooking()
   const slots = options.data?.slots ?? []
-  const slot = slots.find((s) => s.startTime === data.startTime && s.status === 'available' && !s.current)
+  const open = slots.filter((s) => s.status === 'available' && !s.current)
+  const blocked = slots.filter((s) => s.status !== 'available' || s.current)
+  const slot = open.find((s) => s.startTime === data.startTime)
+  const newUnitName = units.find((u) => u.id === data.unitId)?.name ?? null
 
-  const hint = !data.date
-    ? 'Pilih tanggal terlebih dahulu.'
-    : needsUnit || options.data?.requiresUnit
-      ? 'Pilih unit terlebih dahulu untuk melihat slot.'
+  const hint =
+    needsUnit || options.data?.requiresUnit
+      ? 'Pilih unit terlebih dahulu untuk melihat jam.'
       : options.isPending
-        ? 'Memuat slot...'
+        ? 'Memuat jam...'
         : options.isError
           ? extractApiError(options.error).message
           : options.data?.closed
             ? options.data.reason === 'month_closed'
-              ? 'Jadwal untuk bulan ini belum dibuka oleh pengelola.'
-              : 'Fasilitas tutup pada tanggal ini (Libur/Pemeliharaan).'
-            : slots.length === 0
-              ? 'Tidak ada slot yang cocok dengan durasi reservasi ini pada tanggal tersebut.'
-              : null
+              ? 'Jadwal bulan ini belum dibuka pengelola — pilih tanggal lain.'
+              : 'Fasilitas tutup di tanggal ini (libur/pemeliharaan) — pilih tanggal lain.'
+            : null
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!slot) return
-    const unitName = units.find((u) => u.id === data.unitId)?.name ?? null
-    const to = scheduleLabel({ date: data.date, startTime: slot.startTime, endTime: slot.endTime, unitName })
-    if (!confirm(`Pindahkan jadwal ${booking.customerName}?\n\nLama: ${currentLabel}\nBaru: ${to}`)) return
+    if (!confirming) {
+      setConfirming(true)
+      toTop()
+      return
+    }
     try {
       const result = await reschedule.mutateAsync({
         id: booking.id,
@@ -530,155 +645,219 @@ function RescheduleForm({
     } catch (error) {
       const parsed = extractApiError(error)
       setErrors(fieldErrorMap(error))
+      setConfirming(false)
       if (Object.keys(parsed.fields).length === 0) toast.error(parsed.message)
       // Slot bisa saja baru terisi orang lain: tampilkan sisa kursi terbaru.
       void options.refetch()
     }
   }
 
-  const fieldError = (field: string) => errors[field] && <p className="mt-1.5 font-bdo text-[11px] text-rose-500">{errors[field]}</p>
+  const fieldError = (field: string) => errors[field] && <p className="mt-1.5 font-bdo text-xs font-semibold text-rose-600">{errors[field]}</p>
+  const sectionLabel = 'mb-2 block font-bdo text-xs font-bold tracking-[0.12em] text-slate-700 uppercase'
 
   return (
-    <form ref={rootRef} onSubmit={submit} className="animate-fade-in-up flex flex-col gap-4">
-      <section className="rounded-[20px] border border-[#F8B5A8]/70 bg-[linear-gradient(135deg,#FFF7F5_0%,#FFFFFF_72%)] p-3.5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#F08C78_0%,#E35336_52%,#B93D2A_100%)] text-white shadow-[0_16px_30px_-22px_rgba(227,83,54,.9)]">
-            <CalendarDays size={18} />
-          </div>
-          <div className="min-w-0">
-            <p className="font-clash text-base font-semibold text-slate-950">Ubah jadwal · {booking.customerName}</p>
-            <p className="mt-1 font-bdo text-[13px] font-semibold text-[#B93D2A]">Saat ini: {currentLabel}</p>
-            <p className="mt-1 font-bdo text-xs leading-relaxed font-medium text-slate-500">
-              Harga & pembayaran tidak berubah. Pelanggan berakun diberi tahu lewat email; walk-in perlu dihubungi.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {units.length > 0 && (
-        <div>
-          <p className={labelBase}>Unit fasilitas</p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {units.map((unit) => {
-              const active = data.unitId === unit.id
-              return (
-                <button
-                  key={unit.id}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => change({ unitId: unit.id, startTime: '' })}
-                  className={cn(
-                    'rounded-[14px] border px-3.5 py-2.5 text-left transition-all',
-                    active
-                      ? 'border-[#E35336] bg-[#FFF7F5] text-[#B93D2A] shadow-[0_14px_28px_-24px_rgba(227,83,54,.9)]'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-[#F8B5A8] hover:bg-[#FFF7F5]/60'
-                  )}
-                >
-                  <span className="block truncate font-clash text-sm font-semibold">{unit.name}</span>
-                  <span className="mt-1 block font-bdo text-[11px] font-semibold opacity-65">
-                    {unit.id === booking.facilityUnitId ? 'Unit saat ini' : active ? 'Unit dipilih' : 'Pilih unit ini'}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-      {fieldError('facilityUnitId')}
-
+    <form ref={rootRef} onSubmit={submit} className="animate-fade-in-up flex flex-col gap-5">
       <div>
-        <label htmlFor="reschedule_date" className={labelBase}>
-          Tanggal baru
-        </label>
-        <input
-          id="reschedule_date"
-          type="date"
-          value={data.date}
-          min={today}
-          onChange={(e) => change({ date: e.target.value, startTime: '' })}
-          className={inputBase}
-        />
-        {fieldError('bookingDate')}
+        <p className="font-clash text-lg font-semibold text-slate-950">
+          {confirming ? 'Cek sekali lagi' : 'Pindah jadwal'} · {booking.customerName}
+        </p>
+        <p className="mt-0.5 font-bdo text-xs font-medium text-slate-500">Harga & pembayaran tidak berubah.</p>
       </div>
 
-      <div>
-        <p className={labelBase}>Jam baru{options.data ? ` · durasi ${formatDuration(options.data.durationMinutes)}` : ''}</p>
-        {hint ? (
-          <p className="rounded-[14px] border border-dashed border-slate-200 bg-slate-50 px-3.5 py-3 font-bdo text-xs font-medium text-slate-500">
-            {hint}
+      {/* Lama -> Baru: selalu terlihat, jadi FO tidak perlu mengingat jadwal lama. */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_1fr]">
+        <ScheduleCard
+          label={confirming ? 'Jadwal lama' : 'Jadwal sekarang'}
+          tone="muted"
+          date={booking.bookingDate}
+          time={`${booking.startTime}–${booking.endTime}`}
+          unitName={booking.facilityUnitName}
+        />
+        <ArrowRight size={22} strokeWidth={2.5} className="self-center justify-self-center text-[#E35336] max-sm:rotate-90" aria-hidden />
+        <ScheduleCard
+          label="Jadwal baru"
+          tone="brand"
+          date={data.date}
+          time={slot ? `${slot.startTime}–${slot.endTime}` : null}
+          unitName={newUnitName}
+        />
+      </div>
+
+      {confirming ? (
+        <section className="rounded-[18px] border border-amber-200 bg-amber-50 p-4 font-bdo text-sm text-amber-900">
+          <p className="font-semibold">
+            Jadwal {booking.customerName} akan dipindah ke{' '}
+            <strong className="font-bold">
+              {formatDateDisplay(data.date)}, jam {slot?.startTime}–{slot?.endTime}
+            </strong>
+            .
           </p>
-        ) : (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {slots.map((s) => {
-              const active = s.startTime === slot?.startTime
-              const disabled = s.current || s.status !== 'available'
-              const note = s.current
-                ? 'Jadwal saat ini'
-                : s.status === 'cancelled'
-                  ? 'Sesi dibatalkan'
-                  : s.status === 'registered'
-                    ? 'Sudah terdaftar di sesi ini'
-                    : `Sisa ${s.remaining}/${s.capacity}${s.status === 'full' ? ' · penuh' : s.status === 'past' ? ' · lewat' : ''}`
-              return (
-                <button
-                  key={s.startTime}
-                  type="button"
-                  disabled={disabled}
-                  aria-pressed={active}
-                  onClick={() => change({ startTime: s.startTime })}
-                  className={cn(
-                    'rounded-[14px] border px-3 py-2.5 text-left transition-all disabled:cursor-not-allowed',
-                    active
-                      ? 'border-[#E35336] bg-[#FFF7F5] text-[#B93D2A] shadow-[0_14px_28px_-24px_rgba(227,83,54,.9)]'
-                      : s.current
-                        ? 'border-dashed border-[#F8B5A8] bg-[#FFF7F5]/60 text-[#B93D2A]'
-                        : disabled
-                          ? 'border-slate-100 bg-slate-50 text-slate-400'
-                          : 'border-slate-200 bg-white text-slate-700 hover:border-[#F8B5A8] hover:bg-[#FFF7F5]/60'
-                  )}
-                >
-                  <span className={cn('block font-clash text-sm font-semibold', s.status === 'cancelled' && 'line-through')}>
-                    {s.startTime}-{s.endTime}
-                  </span>
-                  <span className="mt-1 block font-bdo text-[11px] font-semibold opacity-75">{note}</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
-        {fieldError('startTime')}
-      </div>
+          {data.reason && <p className="mt-2 text-amber-800">Alasan: &quot;{data.reason}&quot;</p>}
+          <p className="mt-2 text-xs font-medium text-amber-800">
+            {booking.userId
+              ? 'Pelanggan otomatis diberi tahu lewat email.'
+              : 'Pelanggan walk-in tidak menerima email — hubungi pelanggan setelah ini.'}
+          </p>
+        </section>
+      ) : (
+        <>
+          {units.length > 0 && (
+            <div>
+              <p className={sectionLabel}>1. Pilih unit</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {units.map((unit) => {
+                  const active = data.unitId === unit.id
+                  return (
+                    <button
+                      key={unit.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => change({ unitId: unit.id, startTime: '' })}
+                      className={cn(
+                        'rounded-[14px] border-2 px-3.5 py-2.5 text-left transition-all',
+                        active ? 'border-[#E35336] bg-[#FFF7F5] text-[#B93D2A]' : 'border-slate-200 bg-white text-slate-600 hover:border-[#F8B5A8]'
+                      )}
+                    >
+                      <span className="block truncate font-clash text-sm font-semibold">{unit.name}</span>
+                      <span className="mt-1 block font-bdo text-[11px] font-semibold opacity-70">
+                        {unit.id === booking.facilityUnitId ? 'Unit sekarang' : active ? 'Dipilih' : 'Pilih unit ini'}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              {fieldError('facilityUnitId')}
+            </div>
+          )}
 
-      <div>
-        <label htmlFor="reschedule_reason" className={labelBase}>
-          Alasan (opsional)
-        </label>
-        <textarea
-          id="reschedule_reason"
-          value={data.reason}
-          onChange={(e) => change({ reason: e.target.value })}
-          rows={2}
-          maxLength={160}
-          placeholder="Mis. permintaan pelanggan, lapangan perbaikan..."
-          className={cn(inputBase, 'resize-none')}
-        />
-        {fieldError('reason')}
-      </div>
+          <div>
+            <p className={sectionLabel}>{units.length > 0 ? '2. ' : '1. '}Pilih tanggal</p>
+            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1.5">
+              {quickDates.map((d) => {
+                const active = d === data.date
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    aria-pressed={active}
+                    aria-label={formatDateDisplay(d)}
+                    onClick={() => change({ date: d, startTime: '' })}
+                    className={cn(
+                      'flex w-15 shrink-0 flex-col items-center rounded-[14px] border-2 py-2 transition-all',
+                      active ? 'border-[#E35336] bg-[#E35336] text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-[#F8B5A8]'
+                    )}
+                  >
+                    <span className="font-bdo text-[10px] font-bold uppercase">
+                      {d === today ? 'Hari ini' : formatDateDisplay(d, { weekday: 'short' })}
+                    </span>
+                    <span className="font-clash text-xl leading-tight font-semibold">{Number(d.slice(8))}</span>
+                    <span className="font-bdo text-[10px] font-semibold">{formatDateDisplay(d, { month: 'short' })}</span>
+                  </button>
+                )
+              })}
+            </div>
+            {/* Tanggal di luar 14 hari. */}
+            <DateBox
+              className="mt-2"
+              value={data.date}
+              min={today}
+              ariaLabel="Pilih tanggal baru dari kalender"
+              onChange={(date) => change({ date, startTime: '' })}
+            />
+            {fieldError('bookingDate')}
+          </div>
+
+          <div>
+            <p className={sectionLabel}>
+              {units.length > 0 ? '3. ' : '2. '}Pilih jam{options.data ? ` · durasi ${formatDuration(options.data.durationMinutes)}` : ''}
+            </p>
+            {hint ? (
+              <p className="rounded-[14px] border-2 border-dashed border-slate-200 bg-slate-50 px-3.5 py-3 font-bdo text-sm font-semibold text-slate-500">
+                {hint}
+              </p>
+            ) : open.length === 0 ? (
+              <p className="rounded-[14px] border-2 border-amber-200 bg-amber-50 px-3.5 py-3 font-bdo text-sm font-bold text-amber-800">
+                Tidak ada jadwal lain di tanggal ini — pilih tanggal lain.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {open.map((s) => {
+                  const active = s.startTime === slot?.startTime
+                  return (
+                    <button
+                      key={s.startTime}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => change({ startTime: s.startTime })}
+                      className={cn(
+                        'relative rounded-[14px] border-2 px-3.5 py-3 text-left transition-all',
+                        active
+                          ? 'border-[#E35336] bg-[#E35336] text-white shadow-[0_14px_28px_-20px_rgba(227,83,54,.9)]'
+                          : 'border-emerald-200 bg-white text-slate-900 hover:border-emerald-400 hover:bg-emerald-50/50'
+                      )}
+                    >
+                      {active && <Check size={16} strokeWidth={3} className="absolute top-2.5 right-2.5" />}
+                      <span className="block font-clash text-lg font-bold">
+                        {s.startTime}–{s.endTime}
+                      </span>
+                      <span className={cn('mt-0.5 block font-bdo text-xs font-bold', active ? 'text-white/90' : 'text-emerald-700')}>
+                        {active ? 'Dipilih' : s.capacity > 1 ? `Tersedia · sisa ${s.remaining}` : 'Tersedia'}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {!hint && blocked.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-1.5 font-bdo text-[11px] font-bold text-slate-400 uppercase">Tidak bisa dipilih</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {blocked.map((s) => (
+                    <span
+                      key={s.startTime}
+                      className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 font-bdo text-[11px] font-semibold text-slate-400"
+                    >
+                      {s.startTime}–{s.endTime} · {s.current ? 'Jadwal sekarang' : SLOT_NOTE[s.status]}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {fieldError('startTime')}
+          </div>
+
+          <div>
+            <label htmlFor="reschedule_reason" className={sectionLabel}>
+              Alasan (boleh kosong)
+            </label>
+            <textarea
+              id="reschedule_reason"
+              value={data.reason}
+              onChange={(e) => change({ reason: e.target.value })}
+              rows={2}
+              maxLength={160}
+              placeholder="Mis. permintaan pelanggan, lapangan perbaikan..."
+              className={cn(inputBase, 'resize-none')}
+            />
+            {fieldError('reason')}
+          </div>
+        </>
+      )}
 
       <div className="flex flex-col-reverse gap-2.5 border-t border-slate-100 pt-3.5 sm:flex-row sm:items-center">
         <button
           type="button"
-          onClick={onBack}
-          className="flex-1 rounded-[14px] bg-slate-100 px-4 py-2.5 font-clash text-[13px] font-semibold text-slate-600 transition-colors hover:bg-slate-200"
+          onClick={confirming ? () => setConfirming(false) : onBack}
+          className="flex-1 rounded-[14px] bg-slate-100 px-4 py-3 font-clash text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-200"
         >
-          Kembali
+          {confirming ? 'Ubah lagi' : 'Kembali'}
         </button>
         <button
           type="submit"
           disabled={!slot || reschedule.isPending}
-          className="flex flex-2 items-center justify-center gap-2 rounded-[14px] bg-[linear-gradient(135deg,#F08C78_0%,#E35336_52%,#B93D2A_100%)] py-2.5 font-clash text-[13px] font-semibold text-white shadow-[0_18px_30px_-24px_rgba(227,83,54,.95)] transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+          className="flex flex-2 items-center justify-center gap-2 rounded-[14px] bg-[linear-gradient(135deg,#F08C78_0%,#E35336_52%,#B93D2A_100%)] py-3 font-clash text-sm font-semibold text-white shadow-[0_18px_30px_-24px_rgba(227,83,54,.95)] transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
         >
-          {reschedule.isPending ? 'Menyimpan...' : 'Simpan Jadwal Baru'}
+          {reschedule.isPending ? 'Memindahkan...' : confirming ? 'Ya, pindahkan' : slot ? 'Lanjut' : 'Pilih jam dulu'}
         </button>
       </div>
     </form>
@@ -779,6 +958,15 @@ function BookingDetail({
         <StatusBadge status={booking.status} />
       </div>
 
+      {/* Jadwal paling atas & besar: ini yang dicari FO saat pelanggan datang. */}
+      <ScheduleCard
+        label={`Jadwal · ${booking.facilityName}`}
+        tone={cancelled ? 'muted' : 'brand'}
+        date={booking.bookingDate}
+        time={`${booking.startTime}–${booking.endTime}`}
+        unitName={booking.facilityUnitName}
+      />
+
       {/* Customer Card */}
       <section className="rounded-[18px] border border-slate-100 bg-slate-50/50 p-4 transition-colors hover:border-[#F8B5A8]/60">
         <div className="mb-3 flex items-center gap-3">
@@ -815,16 +1003,6 @@ function BookingDetail({
           <div className="flex items-center justify-between border-b border-slate-200/50 pb-2">
             <dt className="text-slate-500">Fasilitas</dt>
             <dd className="font-semibold text-slate-900">{booking.facilityName}</dd>
-          </div>
-          <div className="flex items-center justify-between border-b border-slate-200/50 pb-2">
-            <dt className="text-slate-500">Tanggal</dt>
-            <dd className="font-medium text-slate-900">{formatDateDisplay(booking.bookingDate)}</dd>
-          </div>
-          <div className="flex items-center justify-between border-b border-slate-200/50 pb-2">
-            <dt className="text-slate-500">Waktu</dt>
-            <dd className="font-medium text-slate-900">
-              {booking.startTime} - {booking.endTime}
-            </dd>
           </div>
           <div className="flex items-center justify-between">
             <dt className="text-slate-500">Durasi</dt>
@@ -1284,7 +1462,7 @@ function ListView({ bookings, onSelect }: { bookings: AdminBookingDto[]; onSelec
         const duration = getDurationMinutes(b.startTime, b.endTime)
         return (
           <div className="flex flex-col">
-            <p className="font-bdo text-[13px] font-bold text-slate-700">{b.bookingDate}</p>
+            <p className="font-bdo text-[13px] font-bold text-slate-700">{formatDateDisplay(b.bookingDate)}</p>
             <p className="font-bdo text-[11px] font-medium text-slate-500">
               {b.startTime}-{b.endTime} · {formatDuration(duration)}
             </p>
@@ -1502,7 +1680,7 @@ export default function BookingsIndex() {
           description={
             selected && (
               <span className="font-bdo text-sm font-medium text-[#B93D2A]">
-                {selected.facilityName} · {selected.startTime}-{selected.endTime}
+                {selected.facilityName} · {formatDateDisplay(selected.bookingDate, SHORT_DATE)} · {selected.startTime}-{selected.endTime}
               </span>
             )
           }

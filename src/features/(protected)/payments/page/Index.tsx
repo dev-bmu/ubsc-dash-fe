@@ -271,7 +271,15 @@ function PaymentCard({ row, onReject }: { row: PaymentRow; onReject: () => void 
                 <span className="font-semibold text-slate-900">{row.subject.facility}</span>
                 {row.subject.unit ? ` · ${row.subject.unit}` : ''}
                 <br />
-                {row.subject.date} · {row.subject.time}
+                {row.subject.sessions ? (
+                  // Paket: satu transfer untuk semua sesi — tampilkan semuanya, satu baris per sesi.
+                  <>
+                    <span className="font-semibold text-[#B93D2A]">{row.subject.package}</span>
+                    <span className="block whitespace-pre-line">{row.subject.sessions}</span>
+                  </>
+                ) : (
+                  `${row.subject.date} · ${row.subject.time}`
+                )}
               </>
             ) : (
               row.subject.plan
