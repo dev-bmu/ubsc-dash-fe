@@ -31,7 +31,8 @@ const EMPTY_SETTINGS: PaymentSettingsDto = {
   qris: null,
   holdMinutes: 120,
   uniqueCodeMax: 999,
-  accurateCashAccountNo: ''
+  accurateCashAccountNo: '',
+  accurateUniqueCodeItemNo: ''
 }
 
 export default function PaymentsIndex() {
@@ -71,7 +72,8 @@ export default function PaymentsIndex() {
         qris: data.qris,
         holdMinutes: data.holdMinutes,
         uniqueCodeMax: data.uniqueCodeMax,
-        accurateCashAccountNo: data.accurateCashAccountNo
+        accurateCashAccountNo: data.accurateCashAccountNo,
+        accurateUniqueCodeItemNo: data.accurateUniqueCodeItemNo
       }
     : EMPTY_SETTINGS
 
@@ -429,7 +431,8 @@ function SettingsPanel({ settings }: { settings: PaymentSettingsDto }) {
     qrisMerchantName: settings.qris?.merchantName ?? '',
     holdMinutes: settings.holdMinutes,
     uniqueCodeMax: settings.uniqueCodeMax,
-    accurateCashAccountNo: settings.accurateCashAccountNo
+    accurateCashAccountNo: settings.accurateCashAccountNo,
+    accurateUniqueCodeItemNo: settings.accurateUniqueCodeItemNo
   })
   const setData = <K extends keyof typeof data>(key: K, value: (typeof data)[K]) => setFormData((prev) => ({ ...prev, [key]: value }))
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -446,7 +449,8 @@ function SettingsPanel({ settings }: { settings: PaymentSettingsDto }) {
         qrisMerchantName: data.qrisMerchantName,
         holdMinutes: Number(data.holdMinutes),
         uniqueCodeMax: Number(data.uniqueCodeMax),
-        accurateCashAccountNo: data.accurateCashAccountNo
+        accurateCashAccountNo: data.accurateCashAccountNo,
+        accurateUniqueCodeItemNo: data.accurateUniqueCodeItemNo
       })
       setErrors({})
       toast.success('Pengaturan pembayaran disimpan.')
@@ -518,6 +522,14 @@ function SettingsPanel({ settings }: { settings: PaymentSettingsDto }) {
           error={errors.accurateCashAccountNo}
           placeholder="1101-001"
           hint="Akun penerimaan di Accurate untuk export Penerimaan Penjualan. Wajib diisi sebelum export itu dipakai."
+        />
+        <Field
+          label="Nomor item Kode Unik (Accurate)"
+          value={data.accurateUniqueCodeItemNo}
+          onChange={(v) => setData('accurateUniqueCodeItemNo', v)}
+          error={errors.accurateUniqueCodeItemNo}
+          placeholder="UBSC-KODEUNIK"
+          hint="Barang/jasa di Accurate untuk baris kode unik di faktur penjualan"
         />
       </div>
 

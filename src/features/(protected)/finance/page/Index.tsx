@@ -342,8 +342,9 @@ function AccurateExportPanel() {
             Export Accurate
           </p>
           <p className="mt-0.5 font-bdo text-[11px] font-medium text-slate-500">
-            Impor berurutan: 1) Pelanggan, 2) Faktur (transaksi dibuat pada tanggal ini, lunas maupun belum), 3) Penerimaan (transaksi lunas pada
-            tanggal ini). Penerimaan butuh kode akun Kas/Bank di Pembayaran &gt; Pengaturan Pembayaran.
+            Impor berurutan: 1) Pelanggan, 2) Faktur (transaksi dibuat pada tanggal ini, lunas maupun belum; satu baris per sesi + baris kode unik),
+            3) Penerimaan (transaksi lunas pada tanggal ini). Faktur butuh nomor item Kode Unik, Penerimaan butuh kode akun Kas/Bank — keduanya di
+            Pembayaran &gt; Pengaturan Pembayaran.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
