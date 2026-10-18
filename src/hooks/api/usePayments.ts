@@ -2,6 +2,8 @@
 
 import {
   approvePayment,
+  type FinanceLedgerQuery,
+  getFinanceLedger,
   getFinanceReport,
   getPaymentsIndex,
   type PaymentsQuery,
@@ -68,4 +70,9 @@ export function useRemoveQris() {
 
 export function useFinanceReport(month: number, year: number) {
   return useQuery({ queryKey: [...FINANCE, year, month], queryFn: () => getFinanceReport(month, year), placeholderData: keepPreviousData })
+}
+
+/** Di bawah kunci FINANCE: keputusan pembayaran ikut menyegarkan ledger. */
+export function useFinanceLedger(query: FinanceLedgerQuery) {
+  return useQuery({ queryKey: [...FINANCE, 'ledger', query], queryFn: () => getFinanceLedger(query), placeholderData: keepPreviousData })
 }

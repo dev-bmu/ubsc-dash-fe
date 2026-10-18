@@ -3,6 +3,10 @@ import type {
   AdminFinanceDto,
   AdminPaymentIndexDto,
   ApiMeta,
+  FinanceLedgerBasis,
+  FinanceLedgerDto,
+  FinanceLedgerStatus,
+  FinanceLedgerType,
   InvoiceDto,
   PaymentDecisionDto,
   PaymentQueueTab,
@@ -89,6 +93,27 @@ export const openPaymentProof = async (proofUrl: string): Promise<void> => {
 export const getFinanceReport = async (month: number, year: number): Promise<AdminFinanceDto> => {
   const res = await axiosInstance.get<Envelope<AdminFinanceDto>>('/admin/finance', { params: { month, year } })
   return res.data.data
+}
+
+export interface FinanceLedgerQuery {
+  /** 'YYYY-MM-DD' (WIB), inklusif. */
+  from: string
+  to: string
+  basis: FinanceLedgerBasis
+  type: FinanceLedgerType
+  status: FinanceLedgerStatus
+  /** '' = tanpa pencarian. */
+  q: string
+  page: number
+  perPage: number
+}
+
+/** Ledger ter-paginasi: summary = seluruh filter, meta paginasi di envelope. */
+export const getFinanceLedger = async ({ q, ...params }: FinanceLedgerQuery): Promise<{ data: FinanceLedgerDto; meta: ApiMeta }> => {
+  const res = await axiosInstance.get<Envelope<FinanceLedgerDto> & { meta: ApiMeta }>('/admin/finance/ledger', {
+    params: { ...params, q: q || undefined }
+  })
+  return { data: res.data.data, meta: res.data.meta }
 }
 
 /**

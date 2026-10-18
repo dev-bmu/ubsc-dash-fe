@@ -16,6 +16,7 @@ import {
   Filter,
   Landmark,
   LayoutGrid,
+  Loader2,
   PieChart,
   Printer,
   ReceiptText,
@@ -26,12 +27,21 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { toast } from 'sonner'
-import { useFinanceReport } from '@/hooks/api/usePayments'
+import { ServerPagination } from '@/components/admin/Pagination'
+import { useFinanceLedger, useFinanceReport } from '@/hooks/api/usePayments'
 import { extractApiError } from '@/lib/apiError'
-import { todayStr } from '@/lib/calendar'
+import { padTwo, todayStr } from '@/lib/calendar'
+import { formatCalendarDateIntl } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { AccurateExportKind, downloadAccurateExport } from '@/services/Payments'
-import type { AdminFinanceDto, PaymentStatus } from '@/types/contracts/contracts'
+import { AccurateExportKind, downloadAccurateExport, type FinanceLedgerQuery, getFinanceLedger } from '@/services/Payments'
+import type {
+  AdminFinanceDto,
+  FinanceLedgerBasis,
+  FinanceLedgerRowDto,
+  FinanceLedgerStatus,
+  FinanceLedgerType,
+  PaymentStatus
+} from '@/types/contracts/contracts'
 
 // Fase 8D — port 1:1 Pages/Admin/Finance/Index.tsx (Laravel Inertia).
 // Data: useFinanceReport(month, year) (pengganti props Inertia). Ganti periode (router.get preserveState:false)
@@ -68,23 +78,8 @@ interface TypeBreakdown {
   color: string
 }
 
-interface LedgerRow {
-  id: string
-  receiptNumber: string
-  invoiceId: string | null
-  checkoutUrl: string | null
-  customerName: string
-  type: 'booking' | 'membership' | 'other'
-  subject: string
-  /** Harga saja; total = amount + adminFee + uniqueCode (adminFee > 0 hanya transaksi lama). */
-  amount: number
-  adminFee: number
-  uniqueCode: number
-  total: number
-  paymentStatus: PaymentStatus
-  paidAt: string | null
-  createdAt: string | null
-}
+/** Harga saja di `amount`; total = amount + adminFee + uniqueCode (adminFee > 0 hanya transaksi lama). */
+type LedgerRow = FinanceLedgerRowDto
 
 type FinanceProps = {
   stats: FinanceStats
@@ -94,12 +89,11 @@ type FinanceProps = {
   facilityRevenue: BreakdownRow[]
   membershipPlanRevenue: BreakdownRow[]
   typeBreakdown: TypeBreakdown[]
-  ledger: LedgerRow[]
   period: { month: number; year: number }
 }
 
-type LedgerTypeFilter = 'all' | LedgerRow['type']
-type LedgerStatusFilter = 'all' | PaymentStatus
+/** Filter ledger tanpa halaman/pencarian — inilah yang juga dipakai CSV. */
+type LedgerFilters = Omit<FinanceLedgerQuery, 'q' | 'page' | 'perPage'>
 
 const MONTH_NAMES = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
 
@@ -261,37 +255,27 @@ function InfoChip({ color, label }: { color: string; label: string }) {
   )
 }
 
+// CSV ledger pindah ke kepala card ledger: isinya mengikuti rentang + filter ledger, bukan bulan laporan.
 function FinanceToolbar({
   period,
-  rows,
   stats,
   onPeriodChange
 }: {
   period: { month: number; year: number }
-  rows: LedgerRow[]
   stats: FinanceStats
   onPeriodChange: (period: { month: number; year: number }) => void
 }) {
   return (
     <section className="finance-no-print card-glint animate-fade-in-up rounded-[22px] border border-[#FFE0D8] bg-[linear-gradient(135deg,#ffffff_0%,#fff8f6_58%,#f8fafc_100%)] p-2.5 shadow-[0_18px_42px_-36px_rgba(185,61,42,.5)]">
       <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
           <InfoChip color="#10B981" label={`${stats.paidTransactions} lunas`} />
           <InfoChip color="#E35336" label={`${stats.totalBookings ?? 0} reservasi`} />
           <InfoChip color="#0EA5E9" label={`${stats.activeMemberships ?? 0} member`} />
-          <InfoChip color="#64748B" label={`${rows.length} ledger`} />
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-[minmax(210px,1fr)_auto_auto]">
+        <div className="grid gap-2 sm:grid-cols-[minmax(210px,1fr)_auto]">
           <PeriodPicker period={period} onPeriodChange={onPeriodChange} />
-          <button
-            type="button"
-            onClick={() => downloadFinanceCsv(rows, period)}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-[16px] border border-[#FFD5CD] bg-white px-4 font-bdo text-xs font-bold text-[#B93D2A] shadow-xs transition hover:-translate-y-0.5 hover:bg-[#FFF1EE]"
-          >
-            <Download size={15} />
-            CSV
-          </button>
           <button
             type="button"
             onClick={() => window.print()}
@@ -310,17 +294,16 @@ function FinanceToolbar({
  * Export Excel untuk impor Accurate (catatan client 2026-09-28): pelanggan, faktur, lalu penerimaan penjualan.
  * Faktur memakai tanggal transaksi DIBUAT (lunas maupun belum), penerimaan memakai tanggal LUNAS —
  * terpisah dari periode bulan laporan.
- * Tinggal di kepala card tabel ledger (permintaan client), di bawah filter.
+ * Tinggal di kepala card tabel ledger (permintaan client). Rentangnya = rentang ledger (satu kontrol tanggal).
  */
-function AccurateExportPanel() {
-  const [from, setFrom] = useState(todayStr())
-  const [to, setTo] = useState(todayStr())
+function AccurateExportPanel({ from, to }: { from: string; to: string }) {
   const [busy, setBusy] = useState<AccurateExportKind | null>(null)
+  const tooLong = dayCount(from, to) > MAX_EXPORT_DAYS
 
   const download = async (kind: AccurateExportKind) => {
     setBusy(kind)
     try {
-      await downloadAccurateExport(kind, from, to < from ? from : to)
+      await downloadAccurateExport(kind, from, to)
     } catch (error) {
       toast.error(extractApiError(error).message)
     } finally {
@@ -328,10 +311,8 @@ function AccurateExportPanel() {
     }
   }
 
-  const dateInput =
-    'h-10 rounded-[14px] border border-slate-200 bg-slate-50 px-3 font-bdo text-xs font-bold text-slate-700 outline-none focus:border-[#F08C78] focus:bg-white focus:ring-2 focus:ring-[#FFD5CD]'
   const button =
-    'inline-flex h-10 items-center justify-center gap-2 rounded-[15px] border border-[#FFD5CD] bg-white px-4 font-bdo text-xs font-bold text-[#B93D2A] shadow-xs transition hover:-translate-y-0.5 hover:bg-[#FFF1EE] disabled:opacity-60'
+    'inline-flex h-10 items-center justify-center gap-2 rounded-[15px] border border-[#FFD5CD] bg-white px-4 font-bdo text-xs font-bold text-[#B93D2A] shadow-xs transition hover:-translate-y-0.5 hover:bg-[#FFF1EE] disabled:pointer-events-none disabled:opacity-60'
 
   return (
     <div className="finance-no-print relative z-10 mt-3 rounded-[20px] border border-white p-2.5 shadow-[0_16px_34px_-30px_rgba(15,23,42,.38)] backdrop-blur-sm">
@@ -339,47 +320,193 @@ function AccurateExportPanel() {
         <div className="min-w-0">
           <p className="flex items-center gap-2 font-clash text-sm font-semibold text-slate-900">
             <FileText size={15} className="text-[#E35336]" />
-            Export Accurate
+            Export Accurate · {rangeLabel(from, to)}
           </p>
           <p className="mt-0.5 font-bdo text-[11px] font-medium text-slate-500">
-            Impor berurutan: 1) Pelanggan, 2) Faktur (transaksi dibuat pada tanggal ini, lunas maupun belum; satu baris per sesi + baris kode unik),
-            3) Penerimaan (transaksi lunas pada tanggal ini). Faktur butuh nomor item Kode Unik, Penerimaan butuh kode akun Kas/Bank — keduanya di
+            Impor berurutan: 1) Pelanggan, 2) Faktur (transaksi dibuat pada rentang ini, lunas maupun belum; satu baris per sesi + baris kode unik),
+            3) Penerimaan (transaksi lunas pada rentang ini). Faktur butuh nomor item Kode Unik, Penerimaan butuh kode akun Kas/Bank — keduanya di
             Pembayaran &gt; Pengaturan Pembayaran.
           </p>
+          {tooLong && (
+            <p className="mt-1 font-bdo text-[11px] font-bold text-[#B93D2A]">
+              Export Accurate maksimal {MAX_EXPORT_DAYS} hari — persempit rentang tanggal di atas.
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="date"
-            aria-label="Dari tanggal"
-            value={from}
-            max={todayStr()}
-            onChange={(e) => setFrom(e.target.value)}
-            className={dateInput}
-          />
-          <span className="font-bdo text-xs font-bold text-slate-400">s.d.</span>
-          <input
-            type="date"
-            aria-label="Sampai tanggal"
-            value={to}
-            min={from}
-            max={todayStr()}
-            onChange={(e) => setTo(e.target.value)}
-            className={dateInput}
-          />
-          <button type="button" disabled={busy !== null} onClick={() => download('pelanggan')} className={button}>
+          <button type="button" disabled={busy !== null || tooLong} onClick={() => download('pelanggan')} className={button}>
             <Download size={15} />
             {busy === 'pelanggan' ? 'Menyiapkan...' : '1. Pelanggan'}
           </button>
-          <button type="button" disabled={busy !== null} onClick={() => download('faktur')} className={button}>
+          <button type="button" disabled={busy !== null || tooLong} onClick={() => download('faktur')} className={button}>
             <Download size={15} />
             {busy === 'faktur' ? 'Menyiapkan...' : '2. Faktur Penjualan'}
           </button>
-          <button type="button" disabled={busy !== null} onClick={() => download('penerimaan')} className={button}>
+          <button type="button" disabled={busy !== null || tooLong} onClick={() => download('penerimaan')} className={button}>
             <Download size={15} />
             {busy === 'penerimaan' ? 'Menyiapkan...' : '3. Penerimaan Penjualan'}
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ===== Rentang tanggal ledger + export (string 'YYYY-MM-DD', tanpa zona waktu) =====
+
+/** Sama dengan MAX_EXPORT_DAYS / MAX_LEDGER_DAYS di ubsc-api accurate-export-validation.ts. */
+const MAX_EXPORT_DAYS = 31
+const MAX_LEDGER_DAYS = 366
+
+const DAY_MS = 86_400_000
+const shiftDate = (date: string, days: number): string => new Date(Date.parse(date) + days * DAY_MS).toISOString().slice(0, 10)
+const dayCount = (from: string, to: string): number => Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS) + 1
+const formatDay = (date: string): string => formatCalendarDateIntl(date, { day: 'numeric', month: 'long', year: 'numeric' })
+/** 'YYYY-MM-DD HH:mm' (WIB, dari API) -> "16 Okt 2026, 09.37". */
+const formatStamp = (stamp: string | null): string =>
+  stamp
+    ? `${formatCalendarDateIntl(stamp.slice(0, 10), { day: 'numeric', month: 'short', year: 'numeric' })}, ${stamp.slice(11, 16).replace(':', '.')}`
+    : '-'
+const rangeLabel = (from: string, to: string): string => (from === to ? formatDay(from) : `${formatDay(from)} – ${formatDay(to)}`)
+
+/** Bulan laporan: tanggal 1 s.d. akhir bulan, dipotong ke hari ini bila bulannya sedang berjalan. */
+function monthRange({ month, year }: { month: number; year: number }): { from: string; to: string } {
+  const from = `${year}-${padTwo(month)}-01`
+  const last = `${year}-${padTwo(month)}-${padTwo(new Date(year, month, 0).getDate())}`
+  const today = todayStr()
+  return { from, to: from <= today && today < last ? today : last }
+}
+
+/**
+ * Kotak tanggal berbahasa Indonesia ("1 Oktober 2026") — pola DateBox halaman booking: input date asli
+ * (aksesibel) ditumpuk tak terlihat, karena browser menampilkan input date dalam format lokalnya (10/01/2026).
+ */
+function LedgerDateBox({
+  label,
+  value,
+  min,
+  max,
+  onChange
+}: {
+  label: string
+  value: string
+  min?: string
+  max?: string
+  onChange: (date: string) => void
+}) {
+  return (
+    <label className="relative flex h-11 min-w-0 cursor-pointer items-center gap-2.5 rounded-[15px] border border-slate-200 bg-slate-50 px-3 transition focus-within:border-[#F08C78] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#FFD5CD] hover:border-[#F8B5A8]">
+      <CalendarDays size={15} className="shrink-0 text-[#E35336]" />
+      <span className="min-w-0">
+        <span className="block font-bdo text-[9px] font-bold tracking-widest text-slate-400 uppercase">{label}</span>
+        <span className="block truncate font-bdo text-xs font-bold text-slate-700">{formatDay(value)}</span>
+      </span>
+      <input
+        type="date"
+        aria-label={`${label} tanggal`}
+        value={value}
+        min={min}
+        max={max}
+        onClick={(e) => {
+          try {
+            e.currentTarget.showPicker()
+          } catch {
+            // Browser lama tanpa showPicker tetap membuka picker bawaan saat input diketuk.
+          }
+        }}
+        onChange={(e) => e.target.value && onChange(e.target.value)}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+      />
+    </label>
+  )
+}
+
+const BASIS_HINT: Record<FinanceLedgerBasis, string> = {
+  created:
+    'Transaksi yang DIBUAT pada rentang ini, semua status — tanggal yang sama dengan export Faktur. Faktur hanya memuat Lunas + Belum bayar bernominal > 0.',
+  paid: 'Transaksi yang LUNAS pada rentang ini — tanggal yang sama dengan export Penerimaan. Penerimaan tidak memuat transaksi gratis (nominal 0).'
+}
+
+/** Satu kontrol rentang (Dari/Sampai + pintasan + dasar tanggal) untuk tabel ledger DAN export Accurate. */
+function LedgerRangeControl({
+  filters,
+  period,
+  onChange
+}: {
+  filters: LedgerFilters
+  period: { month: number; year: number }
+  onChange: (patch: Partial<LedgerFilters>) => void
+}) {
+  const today = todayStr()
+  const month = monthRange(period)
+  const chips = [
+    { label: 'Hari ini', from: today, to: today },
+    { label: '7 hari', from: shiftDate(today, -6), to: today },
+    // monthRange memotong ke hari ini hanya untuk bulan berjalan; bulan lain diberi nama bulannya.
+    { label: month.to === today ? 'Bulan ini' : `${MONTH_NAMES[period.month]} ${period.year}`, ...month }
+  ]
+  // Dari > Sampai ditukar ke ujung yang sama; rentang > 366 hari ujung satunya ikut bergeser (batas API).
+  const setFrom = (from: string) =>
+    onChange({
+      from,
+      to: filters.to < from ? from : dayCount(from, filters.to) > MAX_LEDGER_DAYS ? shiftDate(from, MAX_LEDGER_DAYS - 1) : filters.to
+    })
+  const setTo = (to: string) =>
+    onChange({ to, from: filters.from > to ? to : dayCount(filters.from, to) > MAX_LEDGER_DAYS ? shiftDate(to, 1 - MAX_LEDGER_DAYS) : filters.from })
+
+  const chip = (active: boolean) =>
+    cn(
+      'inline-flex h-8 items-center rounded-full border px-3 font-bdo text-[11px] font-bold transition',
+      active ? 'border-[#F08C78] bg-[#FFF1EE] text-[#B93D2A]' : 'border-slate-200 bg-white text-slate-500 hover:border-[#F8B5A8] hover:text-[#B93D2A]'
+    )
+
+  return (
+    <div className="finance-no-print relative z-10 mt-3 rounded-[20px] border border-white p-2 shadow-[0_16px_34px_-30px_rgba(15,23,42,.38)] backdrop-blur-sm">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:w-[380px] lg:shrink-0">
+          <LedgerDateBox label="Dari" value={filters.from} max={today} onChange={setFrom} />
+          <LedgerDateBox label="Sampai" value={filters.to} min={filters.from} max={today} onChange={setTo} />
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {chips.map((c) => (
+            <button
+              key={c.label}
+              type="button"
+              onClick={() => onChange({ from: c.from, to: c.to })}
+              aria-pressed={filters.from === c.from && filters.to === c.to}
+              className={chip(filters.from === c.from && filters.to === c.to)}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+        <div
+          role="group"
+          aria-label="Dasar tanggal"
+          className="grid grid-cols-2 gap-1 rounded-[15px] border border-slate-200 bg-slate-50 p-1 lg:ml-auto"
+        >
+          {(
+            [
+              ['created', 'Tanggal transaksi'],
+              ['paid', 'Tanggal lunas']
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onChange({ basis: value })}
+              aria-pressed={filters.basis === value}
+              className={cn(
+                'h-8 rounded-[11px] px-3 font-bdo text-[11px] font-bold whitespace-nowrap transition',
+                filters.basis === value ? 'bg-white text-[#B93D2A] shadow-xs ring-1 ring-[#FFD5CD]' : 'text-slate-500 hover:text-slate-800'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="mt-2 px-1 font-bdo text-[11px] font-medium text-slate-500">{BASIS_HINT[filters.basis]}</p>
     </div>
   )
 }
@@ -1498,29 +1625,62 @@ function BreakdownMicro({ label, value }: { label: string; value: string }) {
   )
 }
 
-function LedgerTable({
-  rows,
-  search,
-  setSearch,
-  typeFilter,
-  setTypeFilter,
-  statusFilter,
-  setStatusFilter
-}: {
-  rows: LedgerRow[]
-  search: string
-  setSearch: (value: string) => void
-  typeFilter: LedgerTypeFilter
-  setTypeFilter: (value: LedgerTypeFilter) => void
-  statusFilter: LedgerStatusFilter
-  setStatusFilter: (value: LedgerStatusFilter) => void
-}) {
-  const paidRows = rows.filter((row) => row.paymentStatus === 'PAID')
-  const attentionRows = rows.filter((row) => row.paymentStatus !== 'PAID')
-  const paidAmount = paidRows.reduce((sum, row) => sum + row.total, 0)
-  const attentionAmount = attentionRows.reduce((sum, row) => sum + row.total, 0)
-  const bookingRows = rows.filter((row) => row.type === 'booking').length
-  const membershipRows = rows.filter((row) => row.type === 'membership').length
+/**
+ * Ledger ter-paginasi server. Rentang (default = bulan laporan; komponen di-remount saat bulan berganti),
+ * dasar tanggal, tipe, status, dan pencarian dikirim ke API; ringkasan dari API = seluruh hasil filter.
+ */
+function LedgerTable({ period }: { period: { month: number; year: number } }) {
+  const [filters, setFilters] = useState<LedgerFilters>(() => ({ ...monthRange(period), basis: 'created', type: 'all', status: 'all' }))
+  const [searchInput, setSearchInput] = useState('')
+  const [q, setQ] = useState('')
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(20)
+  const [csvBusy, setCsvBusy] = useState(false)
+  const { data: result, isLoading, isFetching, isPlaceholderData, isError, refetch } = useFinanceLedger({ ...filters, q, page, perPage })
+  const rows = result?.data.rows ?? []
+  const meta = result?.meta
+  const summary = result?.data.summary
+
+  const change = (patch: Partial<LedgerFilters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }))
+    setPage(1)
+  }
+
+  // Debounce: tidak satu request per ketikan (pola antrean pembayaran).
+  useEffect(() => {
+    if (searchInput.trim() === q) return
+    const timer = setTimeout(() => {
+      setQ(searchInput.trim())
+      setPage(1)
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [searchInput, q])
+
+  // Data menyusut (mis. setelah verifikasi): mundur ke halaman terakhir yang masih ada.
+  useEffect(() => {
+    if (meta && !isPlaceholderData && page > meta.lastPage) setPage(meta.lastPage)
+  }, [meta, isPlaceholderData, page])
+
+  const downloadCsv = async () => {
+    setCsvBusy(true)
+    try {
+      await exportLedgerCsv({ ...filters, q })
+    } catch (error) {
+      toast.error(extractApiError(error).message)
+    } finally {
+      setCsvBusy(false)
+    }
+  }
+
+  const basisDate = (row: LedgerRow) => formatStamp(filters.basis === 'paid' ? row.paidAt : row.createdAt)
+  const otherDate = (row: LedgerRow) =>
+    filters.basis === 'paid'
+      ? `dibuat ${formatStamp(row.createdAt)}`
+      : row.paidAt && row.paidAt !== row.createdAt
+        ? `lunas ${formatStamp(row.paidAt)}`
+        : null
+  const showEmpty = rows.length === 0 && !isLoading && !isPlaceholderData && !(meta && page > meta.lastPage)
+  const emptyText = isError ? 'Gagal memuat ledger.' : 'Tidak ada transaksi pada rentang dan filter ini.'
 
   return (
     <section className="card-glint animate-fade-in-up overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-xs delay-400">
@@ -1532,37 +1692,67 @@ function LedgerTable({
               <ReceiptText size={18} />
             </ShinyIcon>
             <div className="min-w-0">
-              <p className="font-bdo text-[10px] font-bold tracking-[0.16em] text-slate-400 uppercase">Ledger transaksi lengkap</p>
+              <p className="font-bdo text-[10px] font-bold tracking-[0.16em] text-slate-400 uppercase">Ledger transaksi</p>
               <h2 className="font-clash text-base leading-tight font-semibold text-slate-950">Rekonsiliasi dan Invoice</h2>
-              <p className="mt-1 max-w-2xl font-bdo text-[11px] leading-relaxed font-medium text-slate-500">
-                {rows.length} transaksi tampil sesuai filter, dengan nominal lunas dan transaksi yang perlu perhatian langsung terlihat.
+              {/* Angka lama (keepPreviousData) di bawah label rentang baru: diredupkan sampai respons rentang baru tiba. */}
+              <p
+                aria-busy={isPlaceholderData}
+                className={cn(
+                  'mt-1 max-w-2xl font-bdo text-[11px] leading-relaxed font-medium text-slate-500 transition-opacity',
+                  isPlaceholderData && 'opacity-60'
+                )}
+              >
+                {formatNumber(meta?.total ?? 0)} transaksi sesuai filter · {rangeLabel(filters.from, filters.to)} (
+                {filters.basis === 'paid' ? 'tanggal lunas' : 'tanggal transaksi'}). Ringkasan di samping mencakup seluruh rentang, bukan hanya
+                halaman ini.
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:min-w-[580px]">
-            <LedgerSummaryStat label="Lunas" value={formatRupiah(paidAmount)} detail={`${paidRows.length} trx`} tone="emerald" />
-            <LedgerSummaryStat label="Perhatian" value={formatRupiah(attentionAmount)} detail={`${attentionRows.length} trx`} tone="rose" />
-            <LedgerSummaryStat label="Booking" value={formatNumber(bookingRows)} detail="reservasi" tone="terracotta" />
-            <LedgerSummaryStat label="Member" value={formatNumber(membershipRows)} detail="membership" tone="sky" />
+          <div
+            aria-busy={isPlaceholderData}
+            className={cn('grid grid-cols-2 gap-2 transition-opacity sm:grid-cols-4 xl:min-w-[580px]', isPlaceholderData && 'opacity-60')}
+          >
+            <LedgerSummaryStat
+              label="Lunas"
+              value={formatRupiah(summary?.paidAmount ?? 0)}
+              detail={`${summary?.paidCount ?? 0} trx`}
+              tone="emerald"
+            />
+            <LedgerSummaryStat
+              label="Perhatian"
+              value={formatRupiah(summary?.attentionAmount ?? 0)}
+              detail={`${summary?.attentionCount ?? 0} trx`}
+              tone="rose"
+            />
+            <LedgerSummaryStat label="Booking" value={formatNumber(summary?.bookingCount ?? 0)} detail="reservasi" tone="terracotta" />
+            <LedgerSummaryStat label="Member" value={formatNumber(summary?.membershipCount ?? 0)} detail="membership" tone="sky" />
           </div>
         </div>
 
-        <div className="finance-no-print relative z-10 mt-3 grid gap-2 rounded-[20px] border border-white p-2 shadow-[0_16px_34px_-30px_rgba(15,23,42,.38)] backdrop-blur-sm sm:grid-cols-[minmax(220px,1fr)_minmax(135px,160px)_minmax(135px,160px)]">
+        <LedgerRangeControl filters={filters} period={period} onChange={change} />
+
+        <div className="finance-no-print relative z-10 mt-3 grid gap-2 rounded-[20px] border border-white p-2 shadow-[0_16px_34px_-30px_rgba(15,23,42,.38)] backdrop-blur-sm sm:grid-cols-3 md:grid-cols-[minmax(220px,1fr)_minmax(135px,160px)_minmax(135px,160px)_auto]">
           <label className="relative">
             <span className="sr-only">Cari transaksi</span>
-            <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            {/* Data lama tetap tampil selama memuat (keepPreviousData); ikon berputar sebagai penanda. */}
+            {isFetching ? (
+              <Loader2 className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
+            ) : (
+              <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            )}
             <input
               type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Cari invoice, customer, fasilitas..."
+              value={searchInput}
+              maxLength={100}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Cari invoice, customer, fasilitas, nominal..."
               className="h-10 w-full rounded-[15px] border border-slate-200 bg-slate-50 pr-10 pl-10 font-bdo text-sm font-semibold text-slate-700 outline-hidden transition focus:border-[#F08C78] focus:bg-white focus:ring-2 focus:ring-[#FFD5CD]"
             />
-            {search && (
+            {searchInput && (
               <button
                 type="button"
-                onClick={() => setSearch('')}
+                onClick={() => setSearchInput('')}
                 className="absolute top-1/2 right-2.5 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                 aria-label="Hapus pencarian"
               >
@@ -1570,124 +1760,166 @@ function LedgerTable({
               </button>
             )}
           </label>
-          <FilterSelect label="Filter tipe transaksi" value={typeFilter} onChange={(value) => setTypeFilter(value as LedgerTypeFilter)}>
+          <FilterSelect label="Filter tipe transaksi" value={filters.type} onChange={(value) => change({ type: value as FinanceLedgerType })}>
             <option value="all">Semua tipe</option>
             <option value="booking">Booking</option>
             <option value="membership">Membership</option>
             <option value="other">Lainnya</option>
           </FilterSelect>
-          <FilterSelect label="Filter status pembayaran" value={statusFilter} onChange={(value) => setStatusFilter(value as LedgerStatusFilter)}>
+          <FilterSelect
+            label="Filter status pembayaran"
+            value={filters.status}
+            onChange={(value) => change({ status: value as FinanceLedgerStatus })}
+          >
             <option value="all">Semua status</option>
             <option value="PAID">Lunas</option>
             <option value="UNPAID">Belum bayar</option>
             <option value="FAILED">Gagal</option>
             <option value="EXPIRED">Expired</option>
           </FilterSelect>
+          <button
+            type="button"
+            onClick={downloadCsv}
+            disabled={csvBusy || !meta?.total}
+            title="Semua transaksi sesuai rentang dan filter (semua halaman)"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-[15px] border border-[#FFD5CD] bg-white px-4 font-bdo text-xs font-bold text-[#B93D2A] shadow-xs transition hover:-translate-y-0.5 hover:bg-[#FFF1EE] disabled:pointer-events-none disabled:opacity-60 sm:col-span-3 md:col-span-1"
+          >
+            <Download size={15} />
+            {csvBusy ? 'Menyiapkan...' : 'CSV'}
+          </button>
         </div>
 
-        <AccurateExportPanel />
+        <AccurateExportPanel from={filters.from} to={filters.to} />
       </div>
 
-      <div className="hidden md:block">
-        <div className="finance-scrollbar max-h-[500px] overflow-auto">
-          <table className="w-full min-w-[1120px] border-separate border-spacing-0">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-slate-50/95 text-left backdrop-blur-sm">
-                {['Invoice', 'Tanggal', 'Customer', 'Tipe', 'Detail', 'Status', 'Nominal', 'Xendit'].map((header) => (
-                  <th
-                    key={header}
-                    className="border-b border-slate-100 px-4 py-2.5 font-bdo text-[10px] font-bold tracking-[0.16em] text-slate-400 uppercase"
-                  >
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center font-bdo text-sm font-medium text-slate-400">
-                    Tidak ada transaksi yang cocok dengan filter.
-                  </td>
+      <div className={cn('transition-opacity', isPlaceholderData && 'opacity-60')}>
+        <div className="hidden md:block">
+          <div className="finance-scrollbar max-h-[560px] overflow-auto">
+            <table className="w-full min-w-[1120px] border-separate border-spacing-0">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-slate-50/95 text-left backdrop-blur-sm">
+                  {['Invoice', filters.basis === 'paid' ? 'Tanggal lunas' : 'Tanggal', 'Customer', 'Tipe', 'Detail', 'Status', 'Nominal'].map(
+                    (header) => (
+                      <th
+                        key={header}
+                        className="border-b border-slate-100 px-4 py-2.5 font-bdo text-[10px] font-bold tracking-[0.16em] text-slate-400 uppercase"
+                      >
+                        {header}
+                      </th>
+                    )
+                  )}
                 </tr>
-              ) : (
-                rows.map((row) => (
-                  <tr key={row.id} className="group transition hover:bg-[#FFF1EE]/45">
-                    <td className="border-b border-slate-100 px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-[13px] border border-slate-100 bg-slate-50 text-slate-500 transition group-hover:border-[#F8B5A8] group-hover:bg-white group-hover:text-[#B93D2A]">
-                          <FileText size={15} />
-                        </span>
-                        <div>
-                          <p className="font-clash text-sm font-semibold text-slate-900">{row.receiptNumber}</p>
-                          <p className="mt-0.5 font-bdo text-[11px] font-medium text-slate-400">#{row.id}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="border-b border-slate-100 px-4 py-3 font-bdo text-xs font-semibold text-slate-600">
-                      {row.paidAt ?? row.createdAt ?? '-'}
-                    </td>
-                    <td className="border-b border-slate-100 px-4 py-3">
-                      <p className="max-w-[180px] truncate font-clash text-sm font-semibold text-slate-900">{row.customerName}</p>
-                    </td>
-                    <td className="border-b border-slate-100 px-4 py-3">
-                      <TypeBadge type={row.type} />
-                    </td>
-                    <td className="border-b border-slate-100 px-4 py-3">
-                      <p className="max-w-[240px] truncate font-bdo text-sm font-semibold text-slate-700">{row.subject}</p>
-                    </td>
-                    <td className="border-b border-slate-100 px-4 py-3">
-                      <PaymentBadge status={row.paymentStatus} />
-                    </td>
-                    <td className="border-b border-slate-100 px-4 py-3 text-right">
-                      <p className="font-clash text-sm font-bold text-slate-950">{formatRupiah(row.total)}</p>
-                      <LedgerAmountNote row={row} />
-                    </td>
-                    <td className="border-b border-slate-100 px-4 py-3">
-                      <span className="block max-w-[170px] truncate font-bdo text-xs font-semibold text-slate-400">{row.invoiceId ?? '-'}</span>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-12 text-center font-bdo text-sm font-medium text-slate-400">
+                      {showEmpty ? emptyText : 'Memuat...'}
+                      {showEmpty && isError && <RetryButton onClick={() => void refetch()} />}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  rows.map((row) => (
+                    <tr key={row.id} className="group transition hover:bg-[#FFF1EE]/45">
+                      <td className="border-b border-slate-100 px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 items-center justify-center rounded-[13px] border border-slate-100 bg-slate-50 text-slate-500 transition group-hover:border-[#F8B5A8] group-hover:bg-white group-hover:text-[#B93D2A]">
+                            <FileText size={15} />
+                          </span>
+                          <div>
+                            <p className="font-clash text-sm font-semibold text-slate-900">{row.receiptNumber}</p>
+                            <p className="mt-0.5 font-bdo text-[11px] font-medium text-slate-400">#{row.id}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="border-b border-slate-100 px-4 py-3">
+                        <p className="font-bdo text-xs font-semibold text-slate-600">{basisDate(row)}</p>
+                        {otherDate(row) && <p className="mt-0.5 font-bdo text-[10px] font-bold text-slate-400">{otherDate(row)}</p>}
+                      </td>
+                      <td className="border-b border-slate-100 px-4 py-3">
+                        <p className="max-w-[180px] truncate font-clash text-sm font-semibold text-slate-900">{row.customerName}</p>
+                      </td>
+                      <td className="border-b border-slate-100 px-4 py-3">
+                        <TypeBadge type={row.type} />
+                      </td>
+                      <td className="border-b border-slate-100 px-4 py-3">
+                        <p className="max-w-[240px] truncate font-bdo text-sm font-semibold text-slate-700">{row.subject}</p>
+                      </td>
+                      <td className="border-b border-slate-100 px-4 py-3">
+                        <PaymentBadge status={row.paymentStatus} />
+                      </td>
+                      <td className="border-b border-slate-100 px-4 py-3 text-right">
+                        <p className="font-clash text-sm font-bold text-slate-950">{formatRupiah(row.total)}</p>
+                        <LedgerAmountNote row={row} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="finance-scrollbar max-h-[560px] space-y-3 overflow-y-auto p-3.5 md:hidden">
+          {rows.length === 0 ? (
+            <div className="rounded-[20px] border border-dashed border-slate-200 bg-slate-50 p-6 text-center font-bdo text-sm font-semibold text-slate-400">
+              {showEmpty ? emptyText : 'Memuat...'}
+              {showEmpty && isError && <RetryButton onClick={() => void refetch()} />}
+            </div>
+          ) : (
+            rows.map((row) => (
+              <article key={row.id} className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-xs">
+                <div className="border-b border-slate-100 bg-slate-50/80 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-clash text-sm font-semibold text-slate-950">{row.customerName}</p>
+                      <p className="mt-1 font-bdo text-[11px] font-semibold text-slate-400">{row.receiptNumber}</p>
+                    </div>
+                    <PaymentBadge status={row.paymentStatus} />
+                  </div>
+                  <p className="mt-3 font-clash text-xl leading-tight font-bold wrap-break-word text-slate-950">{formatRupiah(row.total)}</p>
+                  <LedgerAmountNote row={row} />
+                </div>
+                <div className="p-4">
+                  <p className="font-bdo text-xs font-semibold text-slate-600">{row.subject}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <TypeBadge type={row.type} />
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 font-bdo text-[11px] font-bold text-slate-500">
+                      {basisDate(row)}
+                    </span>
+                  </div>
+                  {otherDate(row) && <p className="mt-2 font-bdo text-[11px] font-semibold text-slate-400">{otherDate(row)}</p>}
+                </div>
+              </article>
+            ))
+          )}
         </div>
       </div>
 
-      <div className="finance-scrollbar max-h-[560px] space-y-3 overflow-y-auto p-3.5 md:hidden">
-        {rows.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-slate-200 bg-slate-50 p-6 text-center font-bdo text-sm font-semibold text-slate-400">
-            Tidak ada transaksi yang cocok dengan filter.
-          </div>
-        ) : (
-          rows.map((row) => (
-            <article key={row.id} className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-xs">
-              <div className="border-b border-slate-100 bg-slate-50/80 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-clash text-sm font-semibold text-slate-950">{row.customerName}</p>
-                    <p className="mt-1 font-bdo text-[11px] font-semibold text-slate-400">{row.receiptNumber}</p>
-                  </div>
-                  <PaymentBadge status={row.paymentStatus} />
-                </div>
-                <p className="mt-3 font-clash text-xl leading-tight font-bold wrap-break-word text-slate-950">{formatRupiah(row.total)}</p>
-                <LedgerAmountNote row={row} />
-              </div>
-              <div className="p-4">
-                <p className="font-bdo text-xs font-semibold text-slate-600">{row.subject}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <TypeBadge type={row.type} />
-                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 font-bdo text-[11px] font-bold text-slate-500">
-                    {row.paidAt ?? row.createdAt ?? '-'}
-                  </span>
-                </div>
-                <p className="mt-3 truncate font-bdo text-[11px] font-semibold text-slate-400">Xendit: {row.invoiceId ?? '-'}</p>
-              </div>
-            </article>
-          ))
-        )}
-      </div>
+      {meta && meta.total > 0 && (
+        <div className="finance-no-print px-3.5 pb-4">
+          <ServerPagination
+            {...meta}
+            // Halaman yang dipilih langsung tersorot walau datanya masih dimuat.
+            page={page}
+            perPage={perPage}
+            onPageChange={setPage}
+            onPerPageChange={(size) => {
+              setPerPage(size)
+              setPage(1)
+            }}
+          />
+        </div>
+      )}
     </section>
+  )
+}
+
+function RetryButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="ml-1 font-semibold text-rose-500 underline underline-offset-2 hover:text-rose-700">
+      Coba lagi
+    </button>
   )
 }
 
@@ -1951,8 +2183,30 @@ function FinancePrintTemplate({
   )
 }
 
-function downloadFinanceCsv(rows: LedgerRow[], period: { month: number; year: number }) {
-  const periodLabel = `${MONTH_NAMES[period.month]} ${period.year}`
+/** 50 request x 100 baris. Lebih dari itu bukan lagi CSV untuk dibaca manusia — persempit rentang/filter. */
+const CSV_MAX_ROWS = 5_000
+
+/**
+ * CSV = SEMUA transaksi rentang + filter ledger (bukan hanya halaman yang tampil): halaman diambil berurutan
+ * per 100 baris. Baris yang bergeser antarhalaman (transaksi baru masuk saat mengunduh) dibuang duplikatnya.
+ */
+async function exportLedgerCsv(query: LedgerFilters & { q: string }): Promise<void> {
+  const fetchPage = (page: number) => getFinanceLedger({ ...query, page, perPage: 100 })
+  const first = await fetchPage(1)
+  if (first.meta.total > CSV_MAX_ROWS) {
+    toast.error(
+      `CSV maksimal ${formatNumber(CSV_MAX_ROWS)} transaksi, hasil filter ini ${formatNumber(first.meta.total)}. Persempit rentang tanggal atau filter.`
+    )
+    return
+  }
+  const rows = [...first.data.rows]
+  for (let page = 2; page <= first.meta.lastPage; page++) rows.push(...(await fetchPage(page)).data.rows)
+  downloadFinanceCsv([...new Map(rows.map((row) => [row.id, row])).values()], query)
+}
+
+function downloadFinanceCsv(rows: LedgerRow[], { from, to, basis }: Pick<LedgerFilters, 'from' | 'to' | 'basis'>) {
+  // Dasar tanggal ditulis di Periode: rentang berlaku untuk kolom Tanggal Dibuat ('created') atau Tanggal Lunas ('paid').
+  const periodLabel = `${rangeLabel(from, to)} (${basis === 'paid' ? 'tanggal lunas' : 'tanggal transaksi'})`
   // Kolom Biaya Admin hanya bila ada transaksi lama yang membawanya (biaya admin dihapus 2026-10-08).
   const withFee = rows.some((row) => row.adminFee > 0)
   const feeCell = (cell: string | number) => (withFee ? [cell] : [])
@@ -1960,8 +2214,8 @@ function downloadFinanceCsv(rows: LedgerRow[], period: { month: number; year: nu
     'No',
     'Periode',
     'Receipt Number',
-    'Xendit Invoice ID',
-    'Tanggal',
+    'Tanggal Dibuat',
+    'Tanggal Lunas',
     'Customer',
     'Tipe Transaksi',
     'Detail',
@@ -1969,8 +2223,7 @@ function downloadFinanceCsv(rows: LedgerRow[], period: { month: number; year: nu
     'Harga',
     ...feeCell('Biaya Admin'),
     'Kode Unik',
-    'Total',
-    'Checkout URL'
+    'Total'
   ]
   const escapeCell = (value: string | number | null) => `"${String(value ?? '').replaceAll('"', '""')}"`
   const body = rows.map((row, index) =>
@@ -1978,8 +2231,8 @@ function downloadFinanceCsv(rows: LedgerRow[], period: { month: number; year: nu
       index + 1,
       periodLabel,
       row.receiptNumber,
-      row.invoiceId,
-      row.paidAt ?? row.createdAt ?? '',
+      row.createdAt,
+      row.paidAt,
       row.customerName,
       row.type === 'booking' ? 'Booking' : row.type === 'membership' ? 'Membership' : 'Lainnya',
       row.subject,
@@ -1987,8 +2240,7 @@ function downloadFinanceCsv(rows: LedgerRow[], period: { month: number; year: nu
       row.amount,
       ...feeCell(row.adminFee),
       row.uniqueCode,
-      row.total,
-      row.checkoutUrl
+      row.total
     ]
       .map(escapeCell)
       .join(',')
@@ -2011,8 +2263,7 @@ function downloadFinanceCsv(rows: LedgerRow[], period: { month: number; year: nu
       sum((row) => row.amount),
       ...feeCell(sum((row) => row.adminFee)),
       sum((row) => row.uniqueCode),
-      sum((row) => row.total),
-      ''
+      sum((row) => row.total)
     ]
       .map(escapeCell)
       .join(',')
@@ -2021,7 +2272,7 @@ function downloadFinanceCsv(rows: LedgerRow[], period: { month: number; year: nu
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `UBSC-Finance-Ledger-${MONTH_NAMES[period.month]}-${period.year}.csv`
+  link.download = `UBSC-Finance-Ledger-${from === to ? from : `${from}_${to}`}-${basis === 'paid' ? 'tanggal-lunas' : 'tanggal-transaksi'}.csv`
   link.click()
   URL.revokeObjectURL(url)
 }
@@ -2051,7 +2302,6 @@ function buildFinanceFallback(period: { month: number; year: number }): AdminFin
       { name: 'Membership', type: 'membership', revenue: 0, share: 0, color: '#10B981' },
       { name: 'Kode Unik', type: 'unique_code', revenue: 0, share: 0, color: '#A855F7' }
     ],
-    ledger: [],
     period
   }
 }
@@ -2067,7 +2317,7 @@ export default function FinanceIndex() {
   const report: FinanceProps = data ?? fallback
 
   // Laravel preserveState:false me-remount halaman saat periode berganti → key periode yang sedang dirender
-  // mereset state turunan (search, filter ledger, state grafik harian, animasi masuk).
+  // mereset state turunan (rentang + filter ledger kembali ke bulan itu, state grafik harian, animasi masuk).
   return <FinanceIndexContent key={`${report.period.year}-${report.period.month}`} report={report} onPeriodChange={setPeriod} />
 }
 
@@ -2078,22 +2328,7 @@ function FinanceIndexContent({
   report: FinanceProps
   onPeriodChange: (period: { month: number; year: number }) => void
 }) {
-  const { stats, revenueTrend, dailyRevenue, monthlyRevenue, facilityRevenue, membershipPlanRevenue, typeBreakdown, ledger, period } = report
-  const [search, setSearch] = useState('')
-  const [typeFilter, setTypeFilter] = useState<LedgerTypeFilter>('all')
-  const [statusFilter, setStatusFilter] = useState<LedgerStatusFilter>('all')
-
-  const filteredLedger = useMemo(() => {
-    const needle = search.trim().toLowerCase()
-    return ledger.filter((row) => {
-      const matchType = typeFilter === 'all' || row.type === typeFilter
-      const matchStatus = statusFilter === 'all' || row.paymentStatus === statusFilter
-      const matchSearch =
-        !needle ||
-        [row.receiptNumber, row.invoiceId ?? '', row.customerName, row.subject, row.type, row.paymentStatus].join(' ').toLowerCase().includes(needle)
-      return matchType && matchStatus && matchSearch
-    })
-  }, [ledger, search, statusFilter, typeFilter])
+  const { stats, revenueTrend, dailyRevenue, monthlyRevenue, facilityRevenue, membershipPlanRevenue, typeBreakdown, period } = report
 
   return (
     <>
@@ -2108,7 +2343,7 @@ function FinanceIndexContent({
 
       <main className="ubsc-page-finance max-w-full flex-1 px-4 pt-2 pb-10 xl:px-8">
         <div className="flex flex-col gap-4 overflow-x-hidden pt-3 pb-16">
-          <FinanceToolbar period={period} rows={filteredLedger} stats={stats} onPeriodChange={onPeriodChange} />
+          <FinanceToolbar period={period} stats={stats} onPeriodChange={onPeriodChange} />
 
           <section className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2 2xl:grid-cols-[minmax(330px,0.84fr)_minmax(420px,1fr)_minmax(460px,1.12fr)]">
             <RevenueHero stats={stats} trend={revenueTrend} period={period} dailyRevenue={dailyRevenue} />
@@ -2145,15 +2380,7 @@ function FinanceIndexContent({
             />
           </section>
 
-          <LedgerTable
-            rows={filteredLedger}
-            search={search}
-            setSearch={setSearch}
-            typeFilter={typeFilter}
-            setTypeFilter={setTypeFilter}
-            statusFilter={statusFilter}
-            setStatusFilter={setStatusFilter}
-          />
+          <LedgerTable period={period} />
         </div>
 
         <FinancePrintTemplate stats={stats} dailyRevenue={dailyRevenue} revenueTrend={revenueTrend} period={period} />
