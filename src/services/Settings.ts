@@ -5,7 +5,9 @@ import type {
   AdminScheduleIndexDto,
   AdminStaffUserIndexDto,
   NotificationIdsPayload,
+  RoleCreatePayload,
   RolePermissionsPayload,
+  RoleRenamePayload,
   ScheduleClosedDatesPayload,
   ScheduleTogglePayload,
   StaffAccountDeletePayload,
@@ -28,6 +30,18 @@ export const getRoles = async (): Promise<AdminRoleIndexDto> => {
 /** Kunci role adalah NAMA-nya (RolePermission.roleName), bukan uuid. */
 export const updateRolePermissions = async (name: string, payload: RolePermissionsPayload): Promise<void> => {
   await axiosInstance.put(`/admin/settings/roles/${encodeURIComponent(name)}`, payload)
+}
+
+export const createRole = async (payload: RoleCreatePayload): Promise<void> => {
+  await axiosInstance.post('/admin/settings/roles', payload)
+}
+
+export const renameRole = async (name: string, payload: RoleRenamePayload): Promise<void> => {
+  await axiosInstance.patch(`/admin/settings/roles/${encodeURIComponent(name)}`, payload)
+}
+
+export const deleteRole = async (name: string): Promise<void> => {
+  await axiosInstance.delete(`/admin/settings/roles/${encodeURIComponent(name)}`)
 }
 
 // ---- Schedules ----

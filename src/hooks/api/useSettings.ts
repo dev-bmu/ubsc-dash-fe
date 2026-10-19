@@ -2,7 +2,9 @@
 
 import {
   clearReadNotifications,
+  createRole,
   createStaffUser,
+  deleteRole,
   deleteStaffUser,
   getNotifications,
   getRoles,
@@ -11,6 +13,7 @@ import {
   getStaffUsers,
   markNotificationsRead,
   quickOpenNextSchedule,
+  renameRole,
   toggleSchedule,
   updateRolePermissions,
   updateScheduleClosedDates,
@@ -20,7 +23,9 @@ import {
 } from '@/services/Settings'
 import type {
   NotificationIdsPayload,
+  RoleCreatePayload,
   RolePermissionsPayload,
+  RoleRenamePayload,
   ScheduleClosedDatesPayload,
   ScheduleTogglePayload,
   StaffPasswordPayload,
@@ -51,6 +56,39 @@ export function useUpdateRolePermissions() {
       qc.invalidateQueries({ queryKey: ['auth', 'me'] })
     }
   })
+}
+
+/**
+ * Role baru / ganti nama / hapus: daftar role di halaman Pengguna Internal dan /me ikut berubah.
+ * Daftar role DITUNGGU (promise dikembalikan ke onSuccess): halaman Role & Access memilih role yang baru
+ * dibuat/diganti namanya tepat setelah mutateAsync, dan nama itu harus sudah ada di data — kalau belum,
+ * efek "role aktif tidak ditemukan" melompat ke role pertama.
+ */
+function useRoleInvalidate() {
+  const qc = useQueryClient()
+  return async () => {
+    qc.invalidateQueries({ queryKey: STAFF_USERS })
+    qc.invalidateQueries({ queryKey: ['auth', 'me'] })
+    await qc.invalidateQueries({ queryKey: ROLES })
+  }
+}
+
+export function useCreateRole() {
+  const invalidate = useRoleInvalidate()
+  return useMutation({ mutationFn: (payload: RoleCreatePayload) => createRole(payload), onSuccess: invalidate })
+}
+
+export function useRenameRole() {
+  const invalidate = useRoleInvalidate()
+  return useMutation({
+    mutationFn: ({ name, payload }: { name: string; payload: RoleRenamePayload }) => renameRole(name, payload),
+    onSuccess: invalidate
+  })
+}
+
+export function useDeleteRole() {
+  const invalidate = useRoleInvalidate()
+  return useMutation({ mutationFn: (name: string) => deleteRole(name), onSuccess: invalidate })
 }
 
 // ---- Schedules ----
@@ -89,7 +127,10 @@ export function useStaffUsers() {
 
 export function useCreateStaffUser() {
   const qc = useQueryClient()
-  return useMutation({ mutationFn: (payload: StaffUserPayload) => createStaffUser(payload), onSuccess: () => qc.invalidateQueries({ queryKey: STAFF_USERS }) })
+  return useMutation({
+    mutationFn: (payload: StaffUserPayload) => createStaffUser(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: STAFF_USERS })
+  })
 }
 
 export function useUpdateStaffUser() {

@@ -9,8 +9,11 @@ import {
   ChevronRight,
   CircleAlert,
   Crown,
+  Dumbbell,
   LayoutDashboard,
   LockKeyhole,
+  Pencil,
+  Plus,
   RotateCcw,
   Save,
   Search,
@@ -18,15 +21,17 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  Trash2,
   UsersRound,
   X
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { toast } from 'sonner'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { isAdministrator, PERMISSIONS } from '@/config/permissions'
 import { useAuth } from '@/context/AuthContext'
-import { useRoles, useUpdateRolePermissions } from '@/hooks/api/useSettings'
-import { extractApiError } from '@/lib/apiError'
+import { useCreateRole, useDeleteRole, useRenameRole, useRoles, useUpdateRolePermissions } from '@/hooks/api/useSettings'
+import { extractApiError, fieldErrorMap } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
 import type { AdminRoleDto } from '@/types/contracts/contracts'
 
@@ -113,7 +118,12 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
     items: [
       { key: PERMISSIONS.MEMBERS_READ, label: 'Melihat Daftar Member & Pelanggan' },
       { key: PERMISSIONS.MEMBERS_MANAGE, label: 'Mengelola Data Member' },
-      { key: PERMISSIONS.PAYMENTS_MANAGE, label: 'Membuat & Membatalkan Payment Link' }
+      { key: PERMISSIONS.PAYMENTS_MANAGE, label: 'Memverifikasi Pembayaran (Setujui / Tolak Bukti Transfer)' },
+      // BARU 2026-10-20: dulu ikut payments.manage. Default hanya Administrator.
+      {
+        key: PERMISSIONS.PAYMENTS_SETTINGS_MANAGE,
+        label: 'Mengubah Pengaturan Pembayaran (Durasi Hold, Kode Unik, QRIS, Rekening, Kode Accurate)'
+      }
     ]
   },
   {
@@ -124,6 +134,16 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
     icon: BadgeCheck,
     items: [{ key: PERMISSIONS.IDENTITY_VERIFY, label: 'Validasi Identitas Warga UB & Foto Member (Verifikasi ID & Foto)' }]
   },
+  // Sama alasannya dengan grup Sistem di bawah: gym.checkin (PRD tambahan tahap D) sempat tidak ada di grid,
+  // sehingga tak bisa diatur dan "Aktifkan semua" diam-diam mencabutnya dari Front Office / Staff Central.
+  {
+    id: 'gym',
+    letter: 'G',
+    label: 'Gym',
+    summary: 'Check-in member gym dan analitik kunjungan.',
+    icon: Dumbbell,
+    items: [{ key: PERMISSIONS.GYM_CHECKIN, label: 'Check-in Member Gym & Melihat Analitik Kunjungan' }]
+  },
   // Grup ini TIDAK ada di Laravel: kedua permission-nya memang baru (lihat blok "Sistem" di
   // shared/permissions.ts, yang menyatakan urutan katalog = urutan tampil matriks ini).
   // Wajib ada di sini. Tanpa grup ini keduanya tak terlihat DAN tak bisa di-toggle, sementara
@@ -131,7 +151,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
   // diam-diam MENCABUT rbac.manage & users.manage dari role yang memilikinya (mis. Manager).
   {
     id: 'system',
-    letter: 'G',
+    letter: 'H',
     label: 'Sistem',
     summary: 'Kelola matriks role dan akun staf internal.',
     icon: Shield,
@@ -352,13 +372,15 @@ function RoleSelector({
   activeRoleName,
   localPerms,
   dirtyRoleNames,
-  onSelect
+  onSelect,
+  onCreate
 }: {
   roles: RoleData[]
   activeRoleName: string
   localPerms: Record<string, Set<string>>
   dirtyRoleNames: Set<string>
   onSelect: (name: string) => void
+  onCreate: () => void
 }) {
   const scrollerRef = useRef<HTMLDivElement | null>(null)
   const scrollRoles = (direction: -1 | 1) => {
@@ -378,11 +400,19 @@ function RoleSelector({
               <h2 className="font-clash text-base font-semibold text-slate-950">Daftar Role</h2>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-1 xl:hidden">
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={onCreate}
+              className="inline-flex h-8 items-center gap-1.5 rounded-[12px] bg-[linear-gradient(135deg,#F08C78_0%,#E35336_52%,#B93D2A_100%)] px-3 font-clash text-xs font-semibold text-white shadow-[0_12px_26px_-18px_rgba(227,83,54,.95)] transition hover:-translate-y-0.5"
+            >
+              <Plus size={14} />
+              Tambah
+            </button>
             <button
               type="button"
               onClick={() => scrollRoles(-1)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-[12px] border border-[#FFD5CD] bg-white text-[#B93D2A] shadow-xs"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-[12px] border border-[#FFD5CD] bg-white text-[#B93D2A] shadow-xs xl:hidden"
               aria-label="Scroll role ke kiri"
             >
               <ChevronRight size={14} className="rotate-180" />
@@ -390,7 +420,7 @@ function RoleSelector({
             <button
               type="button"
               onClick={() => scrollRoles(1)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-[12px] border border-[#FFD5CD] bg-white text-[#B93D2A] shadow-xs"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-[12px] border border-[#FFD5CD] bg-white text-[#B93D2A] shadow-xs xl:hidden"
               aria-label="Scroll role ke kanan"
             >
               <ChevronRight size={14} />
@@ -490,7 +520,9 @@ function CommandBar({
   setQuery,
   onEnableAll,
   onReset,
-  onSave
+  onSave,
+  onRename,
+  onDelete
 }: {
   role?: RoleData
   count: number
@@ -502,7 +534,13 @@ function CommandBar({
   onEnableAll: () => void
   onReset: () => void
   onSave: () => void
+  onRename: () => void
+  onDelete: () => void
 }) {
+  // Ganti nama / hapus memuat ulang daftar role dari server: centang yang belum disimpan akan hilang.
+  const lockedReason = dirty ? 'Simpan atau reset perubahan hak akses dulu.' : null
+  const deleteBlocked =
+    lockedReason ?? (role && role.usersCount > 0 ? `Masih dipakai ${role.usersCount} akun. Pindahkan akunnya dulu di Pengguna Internal.` : null)
   return (
     <section className="role-enter role-card-glint overflow-hidden rounded-[24px] border border-[#FFE0D8] bg-white shadow-[0_18px_42px_-38px_rgba(185,61,42,.48)]">
       <div className="role-grid-surface flex flex-col gap-3 border-b border-[#FFE0D8] p-3 2xl:grid 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-center">
@@ -514,9 +552,35 @@ function CommandBar({
             <p className="font-bdo text-[9px] font-bold tracking-widest text-[#B93D2A]/70 uppercase">
               {isAdmin ? 'Edit hak akses' : 'Akses yang diberikan'}
             </p>
-            <h2 className="font-clash text-xl leading-tight font-semibold text-slate-950 sm:text-2xl sm:leading-8 2xl:truncate">
-              {role?.name ?? 'Tidak ada role'}
-            </h2>
+            <div className="flex min-w-0 items-center gap-2">
+              <h2 className="min-w-0 font-clash text-xl leading-tight font-semibold text-slate-950 sm:text-2xl sm:leading-8 2xl:truncate">
+                {role?.name ?? 'Tidak ada role'}
+              </h2>
+              {isAdmin && role && (
+                <span className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={onRename}
+                    disabled={Boolean(lockedReason)}
+                    title={lockedReason ?? 'Ganti nama role'}
+                    aria-label={`Ganti nama role ${role.name}`}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-[11px] border border-slate-200 bg-white text-slate-500 transition hover:border-[#F8B5A8] hover:text-[#B93D2A] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onDelete}
+                    disabled={Boolean(deleteBlocked)}
+                    title={deleteBlocked ?? 'Hapus role'}
+                    aria-label={`Hapus role ${role.name}`}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-[11px] border border-slate-200 bg-white text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </span>
+              )}
+            </div>
             <p className="mt-0.5 max-w-2xl truncate font-bdo text-[11px] font-semibold text-slate-400">
               Tekan status izin, review perubahan, lalu simpan.
             </p>
@@ -757,10 +821,118 @@ function PermissionGroupCard({
   )
 }
 
+type RoleDialogState = { mode: 'create' } | { mode: 'rename'; role: RoleData } | null
+
+/**
+ * Tambah role baru atau ganti nama role. Role baru wajib membawa minimal satu hak akses (aturan API), jadi
+ * hak aksesnya disalin dari role yang dipilih; centangnya bisa diatur lagi setelah role dibuat.
+ */
+function RoleDialog({
+  state,
+  roles,
+  defaultSource,
+  busy,
+  onClose,
+  onSubmit
+}: {
+  state: RoleDialogState
+  roles: RoleData[]
+  defaultSource: string
+  busy: boolean
+  onClose: () => void
+  onSubmit: (values: { name: string; source: string }) => Promise<Record<string, string> | null>
+}) {
+  const isCreate = state?.mode === 'create'
+  const [name, setName] = useState('')
+  const [source, setSource] = useState(defaultSource)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    if (!state) return
+    setName(state.mode === 'rename' ? state.role.name : '')
+    setSource(defaultSource)
+    setErrors({})
+  }, [state, defaultSource])
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    setErrors((await onSubmit({ name, source })) ?? {})
+  }
+
+  const inputClass =
+    'h-11 w-full rounded-[14px] border border-slate-200 bg-white px-3.5 font-bdo text-sm font-semibold text-slate-800 outline-hidden transition focus:border-[#F8B5A8] focus:ring-4 focus:ring-[#E35336]/10'
+
+  return (
+    <Dialog open={Boolean(state)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <form onSubmit={submit} className="space-y-4">
+          <DialogHeader>
+            <DialogTitle className="font-clash">{isCreate ? 'Tambah Role Baru' : 'Ganti Nama Role'}</DialogTitle>
+            <DialogDescription className="font-bdo">
+              {isCreate
+                ? 'Hak akses disalin dari role yang dipilih, lalu bisa diatur lagi di matriks setelah role dibuat.'
+                : 'Akun yang memakai role ini dan hak aksesnya tetap sama.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <label className="block">
+            <span className="font-bdo text-[11px] font-bold tracking-wide text-slate-500 uppercase">Nama role</span>
+            <input
+              autoFocus
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              maxLength={50}
+              placeholder="Contoh: Kasir, Supervisor Gym"
+              className={cn(inputClass, 'mt-1.5')}
+            />
+            {errors.name && <span className="mt-1 block font-bdo text-xs font-semibold text-rose-600">{errors.name}</span>}
+          </label>
+
+          {isCreate && (
+            <label className="block">
+              <span className="font-bdo text-[11px] font-bold tracking-wide text-slate-500 uppercase">Salin hak akses dari</span>
+              <select value={source} onChange={(event) => setSource(event.target.value)} className={cn(inputClass, 'mt-1.5')}>
+                {roles.map((role) => (
+                  <option key={role.name} value={role.name}>
+                    {role.name} ({role.permissions.length} izin)
+                  </option>
+                ))}
+              </select>
+              {errors.permissions && <span className="mt-1 block font-bdo text-xs font-semibold text-rose-600">{errors.permissions}</span>}
+            </label>
+          )}
+
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-10 items-center justify-center rounded-[14px] border border-slate-200 bg-white px-4 font-clash text-xs font-semibold text-slate-600"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={busy || !name.trim() || (isCreate && !source)}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-[14px] bg-[linear-gradient(135deg,#F08C78_0%,#E35336_52%,#B93D2A_100%)] px-5 font-clash text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Save size={14} />
+              {busy ? 'Menyimpan...' : isCreate ? 'Buat Role' : 'Simpan Nama'}
+            </button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export default function RolesPage() {
   const { user } = useAuth()
   const { data } = useRoles()
   const updateRolePermissions = useUpdateRolePermissions()
+  const createRole = useCreateRole()
+  const renameRole = useRenameRole()
+  const deleteRole = useDeleteRole()
+  const [dialog, setDialog] = useState<RoleDialogState>(null)
 
   // Identitas array harus stabil: dipakai sebagai dependency efek di bawah.
   const roles = useMemo<RoleData[]>(() => data?.roles ?? [], [data])
@@ -864,6 +1036,43 @@ export default function RolesPage() {
     }
   }
 
+  /** Kembalikan error per field untuk dialog; null = berhasil (dialog ditutup). */
+  const submitDialog = async ({ name, source }: { name: string; source: string }): Promise<Record<string, string> | null> => {
+    if (!dialog) return null
+    // Sama dengan perapian server (trim + spasi ganda jadi satu), supaya role yang baru jadi langsung terpilih.
+    const finalName = name.trim().replace(/\s+/g, ' ')
+    try {
+      if (dialog.mode === 'create') {
+        const permissions = roles.find((role) => role.name === source)?.permissions ?? []
+        await createRole.mutateAsync({ name: finalName, permissions })
+        toast.success(`Role ${finalName} dibuat. Atur hak aksesnya lalu simpan bila perlu.`)
+      } else {
+        await renameRole.mutateAsync({ name: dialog.role.name, payload: { name: finalName } })
+        toast.success(`Role ${dialog.role.name} diganti menjadi ${finalName}.`)
+      }
+      setActiveRoleName(finalName)
+      setDialog(null)
+      return null
+    } catch (error) {
+      const fields = fieldErrorMap(error)
+      const permissions = Object.entries(fields).find(([key]) => key.startsWith('permissions'))?.[1]
+      if (fields.name || permissions) return { ...(fields.name ? { name: fields.name } : {}), ...(permissions ? { permissions } : {}) }
+      toast.error(extractApiError(error).message)
+      return {}
+    }
+  }
+
+  const removeRole = async () => {
+    if (!isAdmin || !activeRole) return
+    if (!window.confirm(`Hapus role ${activeRole.name}? Tindakan ini tidak bisa dibatalkan.`)) return
+    try {
+      await deleteRole.mutateAsync(activeRole.name)
+      toast.success(`Role ${activeRole.name} dihapus.`)
+    } catch (error) {
+      toast.error(extractApiError(error).message)
+    }
+  }
+
   return (
     <>
       <div className="px-4 pt-2 xl:px-8">
@@ -891,6 +1100,7 @@ export default function RolesPage() {
                   setQuery('')
                   setSaveStatus('idle')
                 }}
+                onCreate={() => setDialog({ mode: 'create' })}
               />
             )}
 
@@ -906,6 +1116,8 @@ export default function RolesPage() {
                 onEnableAll={enableAll}
                 onReset={resetRole}
                 onSave={save}
+                onRename={() => activeRole && setDialog({ mode: 'rename', role: activeRole })}
+                onDelete={() => void removeRole()}
               />
 
               {saveStatus === 'error' && (
@@ -922,6 +1134,17 @@ export default function RolesPage() {
           </div>
         </div>
       </main>
+
+      {isAdmin && (
+        <RoleDialog
+          state={dialog}
+          roles={roles}
+          defaultSource={activeRole?.name ?? ''}
+          busy={createRole.isPending || renameRole.isPending}
+          onClose={() => setDialog(null)}
+          onSubmit={submitDialog}
+        />
+      )}
     </>
   )
 }

@@ -4,6 +4,8 @@ import { Banknote, Check, ExternalLink, Loader2, QrCode, Search, Settings2, Tras
 import { type FormEvent, type MouseEvent, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { ServerPagination } from '@/components/admin/Pagination'
+import { createAccessChecker, PERMISSIONS } from '@/config/permissions'
+import { useAuth } from '@/context/AuthContext'
 import {
   useApprovePayment,
   usePaymentsIndex,
@@ -79,6 +81,10 @@ export default function PaymentsIndex() {
 
   const [rejecting, setRejecting] = useState<PaymentRow | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  // Pengaturan (hold, kode unik, QRIS, rekening, kode Accurate) punya izin sendiri sejak 2026-10-20 —
+  // default hanya Administrator; verifikasi pembayaran tetap terbuka untuk payments.manage.
+  const { user } = useAuth()
+  const canManageSettings = createAccessChecker(user?.role, user?.permissions).can([PERMISSIONS.PAYMENTS_SETTINGS_MANAGE])
 
   return (
     <main className="max-w-full flex-1 px-4 pt-2 pb-10 xl:px-8">
@@ -89,18 +95,20 @@ export default function PaymentsIndex() {
             Cocokkan nominal transfer dengan mutasi rekening. Nominal = harga + kode unik, berbeda untuk tiap transfer yang masih terbuka.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowSettings((v) => !v)}
-          className="inline-flex h-11 items-center gap-2 rounded-[16px] border border-slate-200 bg-white px-4 font-clash text-sm font-semibold text-slate-600 transition hover:border-[#F8B5A8] hover:bg-[#FFF7F5] hover:text-[#B93D2A]"
-        >
-          <Settings2 className="h-4 w-4" />
-          Pengaturan Pembayaran
-        </button>
+        {canManageSettings && (
+          <button
+            type="button"
+            onClick={() => setShowSettings((v) => !v)}
+            className="inline-flex h-11 items-center gap-2 rounded-[16px] border border-slate-200 bg-white px-4 font-clash text-sm font-semibold text-slate-600 transition hover:border-[#F8B5A8] hover:bg-[#FFF7F5] hover:text-[#B93D2A]"
+          >
+            <Settings2 className="h-4 w-4" />
+            Pengaturan Pembayaran
+          </button>
+        )}
       </div>
 
       {/* key: form diinisialisasi sekali (seperti useForm); remount saat data pertama tiba agar tak terisi kosong. */}
-      {showSettings && <SettingsPanel key={data ? 'ready' : 'loading'} settings={settings} />}
+      {canManageSettings && showSettings && <SettingsPanel key={data ? 'ready' : 'loading'} settings={settings} />}
 
       <div className="mt-6 flex flex-wrap gap-2">
         {TABS.map((t) => {
