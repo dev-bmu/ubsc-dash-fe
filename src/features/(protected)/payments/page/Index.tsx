@@ -29,7 +29,7 @@ const TABS: { key: PaymentQueueTab; label: string }[] = [
 const EMPTY_SETTINGS: PaymentSettingsDto = {
   bank: { bank: '', accountNumber: '', accountHolder: '' },
   qris: null,
-  holdMinutes: 120,
+  holdMinutes: 15,
   uniqueCodeMax: 999,
   accurateCashAccountNo: '',
   accurateUniqueCodeItemNo: ''
