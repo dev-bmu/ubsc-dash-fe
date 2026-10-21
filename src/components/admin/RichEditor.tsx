@@ -1,10 +1,8 @@
 'use client'
 
 import Image from '@tiptap/extension-image'
-import Link from '@tiptap/extension-link'
-import Placeholder from '@tiptap/extension-placeholder'
 import TextAlign from '@tiptap/extension-text-align'
-import Underline from '@tiptap/extension-underline'
+import { Placeholder } from '@tiptap/extensions'
 import type { Transaction } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
 import { EditorContent, type TiptapEditorHTMLElement, useEditor } from '@tiptap/react'
@@ -135,14 +133,18 @@ export function RichEditor({ value, onChange, placeholder = 'Mulai tulis isi art
 
   const editor = useEditor({
     extensions: [
-      // h1 sengaja tidak ada: judul artikel sudah menjadi <h1> di halaman publik.
-      StarterKit.configure({ heading: { levels: [2, 3, 4] } }),
-      Underline,
+      StarterKit.configure({
+        // h1 sengaja tidak ada: judul artikel sudah menjadi <h1> di halaman publik.
+        heading: { levels: [2, 3, 4] },
+        // target/rel default Link ('_blank' + nofollow) dimatikan: hanya tautan eksternal yang dibuka di tab baru (setLink).
+        link: { openOnClick: false, autolink: true, HTMLAttributes: { target: null, rel: null } },
+        // Bawaan v3 menambah <p></p> di akhir dokumen yang ditutup gambar/daftar/judul, jadi HTML tersimpan
+        // berbeda dari v2. Dimatikan supaya isi artikel tetap sama.
+        trailingNode: false
+      }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Image.configure({ inline: false, allowBase64: false }),
-      Placeholder.configure({ placeholder }),
-      // target/rel default Link ('_blank' + nofollow) dimatikan: hanya tautan eksternal yang dibuka di tab baru (setLink).
-      Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { target: null, rel: null } })
+      Placeholder.configure({ placeholder })
     ],
     content: value,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -167,7 +169,9 @@ export function RichEditor({ value, onChange, placeholder = 'Mulai tulis isi art
     // Wajib di App Router: TipTap merender editor saat SSR kalau ini true, sedangkan
     // ProseMirror baru menyusun DOM-nya di browser — hasilnya hydration mismatch.
     // Satu-satunya tambahan di luar sumber Laravel (Vite/CSR, jadi tidak perlu di sana).
-    immediatelyRender: false
+    immediatelyRender: false,
+    // Toolbar membaca isActive()/can() saat render; v3 tidak lagi render ulang per transaksi secara bawaan.
+    shouldRerenderOnTransaction: true
   })
 
   // `content` di atas hanya dibaca sekali saat editor dibuat, padahal form edit mengisi `value` setelah
@@ -176,7 +180,7 @@ export function RichEditor({ value, onChange, placeholder = 'Mulai tulis isi art
   // antara commit dan sinkronisasi tempat ketikan baru bisa tertimpa value yang basi.
   useLayoutEffect(() => {
     if (!editor || editor.isDestroyed || value === editor.getHTML()) return
-    editor.chain().setMeta('addToHistory', false).setContent(value, false).run()
+    editor.chain().setMeta('addToHistory', false).setContent(value, { emitUpdate: false }).run()
   }, [editor, value])
 
   if (!editor) return null

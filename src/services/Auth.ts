@@ -1,19 +1,17 @@
 import { AUTH_BASE } from '@/config/auth'
+import { extractApiError } from '@/lib/apiError'
 import axiosInstance from '@/lib/axios'
 import type { ApiError } from '@/types/api/api'
 import type { LoginRequest, LoginResponse, LogoutResponse, SessionInfo } from '@/types/api/auth'
 import type { ApiSuccess } from '@/types/contracts/contracts'
 
+// `error` di envelope gagal API adalah OBJEK { code, message, fields?, requestId? }. Dulu dibaca sebagai
+// string, sehingga halaman login merender objek itu dan seluruh panel crash (React #31) setiap kali login
+// gagal — password salah, akun terkunci, atau rate limit.
 const toApiError = (error: unknown, message: string, code: string): ApiError => {
-  if (typeof error === 'object' && error !== null && 'response' in error) {
-    const err = error as { response?: { data?: { error?: string; message?: string; code?: string; details?: unknown } } }
-    return {
-      message: err.response?.data?.error || err.response?.data?.message || message,
-      code: err.response?.data?.code || code,
-      details: err.response?.data?.details
-    }
-  }
-  return { message, code, details: undefined }
+  const parsed = extractApiError(error)
+  if (parsed.code === 'UNKNOWN') return { message, code }
+  return { message: parsed.message, code: parsed.code, details: parsed.fields }
 }
 
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {
